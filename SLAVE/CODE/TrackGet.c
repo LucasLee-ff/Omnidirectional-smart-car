@@ -10,10 +10,9 @@
 int16 centre_last=Width/2;//上次扫描得到的中线位置
 uint8 a,b;//差和比计算
 int16 delta=1;//每隔几列扫描边线
-int16 threshold=100;//阈值
 int16 EdgeL=0,EdgeR=Width-1,lastEdgeL=0,lastEdgeR=Width-1;//记录左右边界
 int16 int_tmp1,int_tmp2;
-int16 validLine;//有效扫描行计数
+uint8 validLine;//有效扫描行计数
 int16 lostLeft_Sign,lostRight_Sign,leftLostLine_Cnt,rightLostLine_Cnt;//丢线标志
 int16 track_Type;//赛道元素标志位,0:直线,1:弯道,2:十字路口,3:环岛,4:岔路,5:坡道,6:车库
 
@@ -23,11 +22,11 @@ int16 stateBranch_Sign,encounter_Cnt;//岔路相关标志位
 extern uint8  mt9v03x_image[High][Width];
 uint8 post_image[High][Width];
 
-int16 Border[3][High];
+uint8 Border[3][High];
 int16 Lost;
 int16 halftrack_Width[High];
-int16 direct_Weight[High]={1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,//方向权重数组
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+int16 direct_Weight[High]={10,9,8,5,4,3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,//方向权重数组
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 int16 default_judge_line=40;
 
@@ -38,8 +37,80 @@ uint8 absolute(uint8 a,uint8 b)
     else
         return b-a;
 }
+uint8 OTSU(uint8 *pre_image)//动态计算阈值
+{
+    uint16 piexlCount[256];
+    uint8 threshold_Max=200,threshold_Min=70;
 
-void trackBorder_Get()//预处理边界
+    for(int i=0;i<256;i++)//初始化数组
+        piexlCount[i]=0;
+
+    for(int i=0;i<High;i++)//统计每个灰度有多少个像素
+        for(int j=0;j<Width;j++)
+        {
+            int tmp=*(pre_image+i*Width+j);
+            piexlCount[tmp]++;
+        }
+
+    uint8 threshold;//阈值
+    int32 deltaMax=0,deltaTmp;//类间方差
+    for(int i=threshold_Min;i<threshold_Max;i++)//寻找使类间方差最大的阈值
+    {
+        int32 N0,N1,U0,U1,U0tmp,U1tmp;
+        N0=N1=U0=U1=U0tmp=U1tmp=0;
+        for(int j=0;j<256;j++)
+        {
+            if(j<=i)//较暗部分
+            {
+                N0=N0+piexlCount[j];
+                U0tmp=U0tmp+j*piexlCount[j];
+            }
+            else//较亮部分
+            {
+                N1=N1+piexlCount[j];
+                U1tmp=U1tmp+j*piexlCount[j];
+            }
+        }
+        U0=U0tmp/N0;
+        U1=U1tmp/N1;
+        deltaTmp=N0*N1*(U0-U1)*(U0-U1);
+        if(deltaTmp>deltaMax)
+        {
+            deltaMax=deltaTmp;
+            threshold=i;
+        }
+    }
+
+    return threshold;
+}
+
+float Regression(uint8 *Border)
+{
+    int32 sum_Multi=0,sum_X=0,sum_Y=0,sum_X2=0,cnt=High-validLine;
+    float k=0.4;
+    for(int i=High-1;i>=validLine;i--)
+    {
+        int32 tmp=*(Border+50+i);
+        sum_Multi=sum_Multi+i*tmp;
+        sum_X=sum_X+i;
+        sum_Y=sum_Y+tmp;
+        sum_X2=sum_X2+i*i;
+    }
+    int32 numerator,denominator;
+    numerator=cnt*sum_Multi-sum_X*sum_Y;
+    denominator=cnt*sum_X2-sum_X*sum_X;
+    if(denominator!=0)
+    {
+        float tmp=(float)(numerator)/(float)(denominator);
+        tmp=tmp>0?tmp:-tmp;
+        tmp=k*tmp;
+        return tmp;
+    }
+    else
+        return 1;
+}
+
+void trackBorder_Get(uint8 threshold)//预处理边界
 {
     memset(Border[0],0,High*sizeof(int));//数据复位
     memset(Border[1],Width/2,High*sizeof(int));
@@ -51,6 +122,23 @@ void trackBorder_Get()//预处理边界
     centre_last=Width>>1;
     for(int i=High-1;i>=0;i--)//扫描左右边线并计算中线
     {
+
+
+        /*a=mt9v03x_image[i][centre_last];
+        b=mt9v03x_image[i-1][centre_last];
+        if(absolute(a,b)/(a+b)*100>=threshold)
+        {
+            validLine=i;
+            break;
+        }*/
+        if(i!=High-1&&mt9v03x_image[i][centre_last]<threshold)
+        {
+            validLine=i;
+            //ips114_showuint8(0,7,mt9v03x_image[i-1][centre_last]);
+            //ips114_showint16(0,7,validLine);
+            break;
+        }
+
         lostLeft_Sign=lostRight_Sign=0;//丢线标志初始化
         for(int j=centre_last-delta;j>=0;j=j-delta)//扫描左边界
         {
@@ -102,42 +190,22 @@ void trackBorder_Get()//预处理边界
         Border[CENTRE][i]=(EdgeL+EdgeR)>>1;//临时中线
         if(lostLeft_Sign==0&&lostRight_Sign==0)//两边都未丢线的情况下更新centre_last，反之继续沿用centre_last
             centre_last=(EdgeL+EdgeR)>>1;
-        if(i-1>=0)//检测下一行是否为有效图像
-        {
-            /*a=mt9v03x_image[i][centre_last];
-            b=mt9v03x_image[i-1][centre_last];
-            if(absolute(a,b)/(a+b)*100>=threshold)
-            {
-                validLine=i;
-                break;
-            }*/
-            if(mt9v03x_image[i-1][centre_last]<threshold)
-            {
-                validLine=i;
-                //ips114_showuint8(0,7,mt9v03x_image[i-1][centre_last]);
-                //ips114_showint16(0,7,validLine);
-                break;
-            }
-        }
     }
 }
 
 int16 centre_line_get()
 {
-    int16 tmp=0;
+    int16 sum_A=0,sum_B=0;
     //ips114_showint16(0,7,validLine);
     //ips114_showint16(0,7,Border[1][High-1]);
     //ips114_showint16(0,7,Border[1][High-2]);
     //ips114_showint16(0,7,centre_last);
-    if(validLine<default_judge_line)
+    for(int i=High-1;i>=validLine;i--)
     {
-        tmp=Border[CENTRE][default_judge_line]-Width/2;
+        sum_A=sum_A+direct_Weight[High-1-i]*(Border[CENTRE][i]-Width/2);
+        sum_B=sum_B+direct_Weight[High-1-i];
     }
-    else
-    {
-        tmp=Border[CENTRE][validLine]-Width/2;
-    }
-    return tmp;
+    return sum_A/sum_B;
 }
 
 /*void Elem_Judge()//赛道判断

@@ -18,8 +18,10 @@
 
 
 
-void trackBorder_Get();
+void trackBorder_Get(uint8 threshold);
 void specialElem_Judge();
 int16 centre_line_get();
+uint8 OTSU(uint8 *pre_image);
+float Regression(uint8 *Border);
 
 #endif /* CODE_TRACKGET_H_ */

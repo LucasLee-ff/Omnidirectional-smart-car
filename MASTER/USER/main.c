@@ -137,25 +137,24 @@ void EXTI0_IRQHandler(void)
         master_encoder_right=-timer_quad_get(TIMER_3);//获得主机编码器的值
         timer_quad_clear(TIMER_2);
         timer_quad_clear(TIMER_3);
-        int16 target=20;
+        int16 target=25;
         int16 target_fl,target_fr,target_rl,target_rr;
-
-        if(slave_position>10||slave_position<-10)
+        //float
+        //k=0.2，target=25可顺利通过
+        if(slave_position>2||slave_position<-2)
         {
-            target_fl=target+slave_position;
-            target_fr=target-slave_position;
-            target_rl=target+slave_position;
-            target_rr=target-slave_position;
+            target_fl=target+0.23*slave_position;//0.2*slave_position;
+            target_fr=target-0.23*slave_position;//0.2*slave_position;
+            target_rl=target+0.23*slave_position;//0.2*slave_position;
+            target_rr=target-0.23*slave_position;//0.2*slave_position;
         }
         else
-        {
             target_fl=target_fr=target_rl=target_rr=target;
-        }
         PID_incCtrl(&Pid_fl,(float)(target_fl-slave_encoder_left));
         PID_incCtrl(&Pid_fr,(float)(target_fr-slave_encoder_right));
         PID_incCtrl(&Pid_rl,(float)(target_rl-master_encoder_left));
         PID_incCtrl(&Pid_rr,(float)(target_rr-master_encoder_right));
-        //Duty_All((int32)Pid_fl.out,(int32)Pid_fr.out,(int32)Pid_rl.out,(int32)Pid_rr.out);
+        Duty_All((int32)Pid_fl.out,(int32)Pid_fr.out,(int32)Pid_rl.out,(int32)Pid_rr.out);
 
         show_flag = 1;                                  //屏幕显示标志位
     }
@@ -173,7 +172,7 @@ int main(void)
     DisableGlobalIRQ();
     board_init();           //务必保留，本函数用于初始化MPU 时钟 调试串口
 
-    ips114_init();
+    lcd_init();
 
     //串口的抢占优先级一定要比外部中断的抢占优先级高，这样才能实时接收从机数据
     //串口的抢占优先级一定要比外部中断的抢占优先级高，这样才能实时接收从机数据
@@ -191,6 +190,8 @@ int main(void)
     Duty_Init();
     Encoder_Init_Master();
 
+    //systick_delay_ms(300);
+
     //此处编写用户代码(例如：外设初始化代码等)
     //总中断最后开启
     EnableGlobalIRQ(0);
@@ -199,16 +200,16 @@ int main(void)
         if(show_flag)
         {
             //将接收到的从机数据显示到屏幕上。
-            ips114_showint16(0, 0, slave_encoder_left);
-            ips114_showint16(0, 1, slave_encoder_right);
-            ips114_showint16(0, 2, master_encoder_left);
-            ips114_showint16(0, 3, master_encoder_right);
-            ips114_showint16(0, 4, slave_position);
 
-            /*ips114_showfloat(0,5,Pid_fl.out,4,2);
-            ips114_showfloat(0,6,Pid_fr.out,4,2);
-            ips114_showfloat(0,7,Pid_rl.out,4,2);
-            ips114_showfloat(0,8,Pid_rr.out,4,2);*/
+            lcd_showint16(0, 0, slave_encoder_left);
+            lcd_showint16(80, 0, slave_encoder_right);
+            lcd_showint16(0, 1, master_encoder_left);
+            lcd_showint16(80, 1, master_encoder_right);
+
+            lcd_showfloat(0,2,Pid_fl.out,4,2);
+            lcd_showfloat(80,2,Pid_fr.out,4,2);
+            lcd_showfloat(0,3,Pid_rl.out,4,2);
+            lcd_showfloat(80,3,Pid_rr.out,4,2);
 
             show_flag = 0;
         }

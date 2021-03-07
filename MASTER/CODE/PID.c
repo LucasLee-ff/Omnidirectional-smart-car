@@ -16,7 +16,7 @@ void PID_Init(Pid_Param *tmp)//PID³õÊ¼»¯
 {
     tmp->kp=20;//
     tmp->ki=5;//
-    tmp->kd=0;//
+    tmp->kd=1;//
     tmp->imax=5000;//
 
     tmp->out=0;
@@ -40,10 +40,10 @@ void PID_incCtrl(Pid_Param *tmp, float error)
     tmp->last_error = error;
 
     //if(error > 1 || error < -1)
-    tmp->out=tmp->out+tmp->out_p + tmp->out_i + tmp->out_d;
+    tmp->out = tmp->out + tmp->out_p + tmp->out_i + tmp->out_d;
 
-    /*if(tmp->out>tmp->imax)
+    if(tmp->out>tmp->imax)
         tmp->out=tmp->imax;
     if(tmp->out<-tmp->imax)
-        tmp->out=-tmp->imax;*/
+        tmp->out=-tmp->imax;
 }

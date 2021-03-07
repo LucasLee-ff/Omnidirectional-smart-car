@@ -31,8 +31,8 @@ int16 slave_encoder_left;                       //从机左编码器值
 int16 slave_encoder_right;                      //从机右编码器值
 int16 slave_position;                           //从机转角值
 
-extern int16 validLine;
-extern int16 Border[3][High];
+extern uint8 Border[3][High];
+extern uint8 validLine;
 //-------------------------------------------------------------------------------------------------------------------
 //  @brief      获取传感器数据
 //  @param      void
@@ -102,6 +102,9 @@ int main(void)
     DisableGlobalIRQ();
     board_init();           //务必保留，本函数用于初始化MPU 时钟 调试串口
 
+    ips114_init();
+    mt9v03x_init();
+
     gpio_init(A0, GPO, 0, GPIO_PIN_CONFIG);                 //同步引脚初始化
     uart_init(UART_3, 460800, UART3_TX_B10, UART3_RX_B11);  //串口3初始化，波特率460800
     timer_pit_interrupt_ms(TIMER_4, 5);                     //定时器4初始化
@@ -109,32 +112,52 @@ int main(void)
     timer_quad_init(TIMER_2,TIMER2_CHA_A15,TIMER2_CHB_B3);//编码器1初始化，使用定时器2
     timer_quad_init(TIMER_3,TIMER3_CHA_B4,TIMER3_CHB_B5);//编码器2初始化，使用定时器3
 
-    mt9v03x_init();
-    ips114_init();
+    //systick_delay_ms(200);
+    //ips114_showstr(0,0,"test");
     EnableGlobalIRQ(0);
     uint8 post_image[MT9V03X_H][MT9V03X_W];
+    uint8 threshold,threshold_Last;
+    uint8 count=0;
+    int16 slave_last;
+    uint8 cnt=0;
+    float k;
     while(1)
     {
         if(mt9v03x_finish_flag==1)
-        {
-            trackBorder_Get();
-            slave_position=centre_line_get();
-            for(int i=0;i<MT9V03X_H;i++)
-                for(int j=0;j<MT9V03X_W;j++)
-                {
-                    if(mt9v03x_image[i][j]>100)
-                        post_image[i][j]=255;
-                    else
-                        post_image[i][j]=0;
-                }
-            ips114_displayimage032_zoom1(mt9v03x_image[0],MT9V03X_W,MT9V03X_H,0,0,MT9V03X_W,MT9V03X_H);
-            for(int i=High-1;i>=0;i--)
-                post_image[i][Border[CENTRE][i]]=0;
-            ips114_displayimage032_zoom1(post_image[0],MT9V03X_W,MT9V03X_H,0,MT9V03X_H+1,MT9V03X_W,MT9V03X_H);
-            ips114_showint16(0,7,slave_position);
-            ips114_showint16(0,8,validLine);
-            mt9v03x_finish_flag=0;
-        }
+       {
+           //threshold=OTSU(mt9v03x_image[0]);
+           trackBorder_Get(100);
+           slave_position=centre_line_get();
+           k=Regression(Border[0]);
+           if(cnt==0)
+           {
+               slave_last=slave_position;
+               cnt=1;
+           }
+           else
+           {
+               if(slave_position-slave_last>50||slave_position-slave_last<-50)
+                   slave_position=slave_last;
+               else
+                   slave_last=slave_position;
+           }
+
+           for(int i=0;i<MT9V03X_H;i++)
+               for(int j=0;j<MT9V03X_W;j++)
+               {
+                   if(mt9v03x_image[i][j]>100)
+                       post_image[i][j]=255;
+                   else
+                       post_image[i][j]=0;
+               }
+           for(int i=High-1;i>=validLine;i--)//validLine
+               post_image[i][Border[CENTRE][i]]=0;
+           ips114_displayimage032(post_image[0],MT9V03X_W,MT9V03X_H);
+           ips114_showint16(0,5,slave_position);
+           ips114_showuint8(80,5,threshold);
+
+           mt9v03x_finish_flag=0;
+       }
     }
 }
 
