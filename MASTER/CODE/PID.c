@@ -14,10 +14,10 @@
 
 void PID_Init(Pid_Param *tmp)//PID初始化
 {
-    tmp->kp=20;//
-    tmp->ki=5;//
-    tmp->kd=1;//
-    tmp->imax=5000;//
+    tmp->kp=17;// P:115 I: 2 D: 15
+    tmp->ki=0;// 5ms:125,2,80
+    tmp->kd=0;//10ms: 13,5,20
+    tmp->imax=6000;//
 
     tmp->out=0;
     tmp->out_p=0;
@@ -33,17 +33,16 @@ void PID_Init(Pid_Param *tmp)//PID初始化
 void PID_incCtrl(Pid_Param *tmp, float error)
 {
     tmp->out_p = tmp->kp * (error-tmp->last_error);
-    tmp->out_i = tmp->ki * error;
+    tmp->out_i=tmp->ki * error;
     tmp->out_d = tmp->kd * (error - 2*tmp->last_error + tmp->last_last_error);
 
     tmp->last_last_error = tmp->last_error;
     tmp->last_error = error;
 
-    //if(error > 1 || error < -1)
-    tmp->out = tmp->out + tmp->out_p + tmp->out_i + tmp->out_d;
+    tmp->out = tmp->out+tmp->out_p + tmp->out_i + tmp->out_d;
 
-    if(tmp->out>tmp->imax)
-        tmp->out=tmp->imax;
-    if(tmp->out<-tmp->imax)
-        tmp->out=-tmp->imax;
+    if(tmp->out > 6000)
+        tmp->out = 6000;
+    if(tmp->out < -6000)
+        tmp->out = -6000;
 }

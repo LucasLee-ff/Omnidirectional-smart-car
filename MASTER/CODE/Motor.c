@@ -24,6 +24,14 @@ void Duty_Init()
     return;
 }
 
+void Duty_Close()
+{
+    pwm_stop(PWM4_CH1_B6);
+    pwm_stop(PWM4_CH2_B7);
+    pwm_stop(PWM4_CH3_B8);
+    pwm_stop(PWM4_CH4_B9);
+}
+
 void Duty_Single(Wheel_Type wh,int32 duty)//设定某个轮子的占空比
 {
     if(duty>10000)

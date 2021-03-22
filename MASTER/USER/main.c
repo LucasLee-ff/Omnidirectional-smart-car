@@ -24,13 +24,14 @@
 #include "headfile.h"
 #include "Pid.h"
 #include "Motor.h"
+#include "shangweiji.h"
 
 #define E_START                 0       //准备状态
 #define E_OK                    1       //成功
 #define E_FRAME_HEADER_ERROR    2       //帧头错误
 #define E_FRAME_RTAIL_ERROR     3       //帧尾错误
 
-#define LINE_LEN                11      //数据长度
+#define LINE_LEN                14      //数据长度
 uint8   temp_buff[LINE_LEN];            //主机用于接收数据的BUFF
 vuint8  uart_flag;                      //接收数据标志位
 
@@ -39,8 +40,12 @@ int16 slave_encoder_right;              //从机右编码器值
 int16 slave_position;                   //从机转角值
 int16 master_encoder_left;              //主机左编码器值
 int16 master_encoder_right;             //主机右编码器值
+int16 track;                       //赛道类型
 
 uint8 show_flag;                        //数据显示标志位
+
+int16 target;
+int16 target_fl,target_fr,target_rl,target_rr;
 
 Pid_Param Pid_fl,Pid_fr,Pid_rl,Pid_rr; //Pid参数结构
 
@@ -94,6 +99,7 @@ void data_analysis(uint8 *line)
     if(line[1] == 0xB0)    slave_encoder_left  = ((int16)line[2] << 8) | line[3];
     if(line[4] == 0xB1)    slave_encoder_right = ((int16)line[5] << 8) | line[6];
     if(line[7] == 0xB2)    slave_position      = ((int16)line[8] << 8) | line[9];
+    if(line[10] == 0xB3)   track               = ((int16)line[11] <<8) | line[12];
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -137,25 +143,30 @@ void EXTI0_IRQHandler(void)
         master_encoder_right=-timer_quad_get(TIMER_3);//获得主机编码器的值
         timer_quad_clear(TIMER_2);
         timer_quad_clear(TIMER_3);
-        int16 target=25;
-        int16 target_fl,target_fr,target_rl,target_rr;
-        //float
-        //k=0.2，target=25可顺利通过
+
+        float k;//大圆环 速度95 转角0.6  S弯 55 0.5
+
+        target=100;//80 120 90_0.75 115 1.2
+        k=0.5;//很稳 100，0.95
+
+        //最初版本 target=35 k=0.28
         if(slave_position>2||slave_position<-2)
         {
-            target_fl=target+0.23*slave_position;//0.2*slave_position;
-            target_fr=target-0.23*slave_position;//0.2*slave_position;
-            target_rl=target+0.23*slave_position;//0.2*slave_position;
-            target_rr=target-0.23*slave_position;//0.2*slave_position;
+            target_fl=target+k*slave_position;
+            target_fr=target-k*slave_position;
+            target_rl=target+k*slave_position;
+            target_rr=target-k*slave_position;
         }
         else
             target_fl=target_fr=target_rl=target_rr=target;
+
+        OutPut_Data(slave_encoder_left, slave_encoder_right, master_encoder_left, master_encoder_right);
+
         PID_incCtrl(&Pid_fl,(float)(target_fl-slave_encoder_left));
         PID_incCtrl(&Pid_fr,(float)(target_fr-slave_encoder_right));
         PID_incCtrl(&Pid_rl,(float)(target_rl-master_encoder_left));
         PID_incCtrl(&Pid_rr,(float)(target_rr-master_encoder_right));
         Duty_All((int32)Pid_fl.out,(int32)Pid_fr.out,(int32)Pid_rl.out,(int32)Pid_rr.out);
-
         show_flag = 1;                                  //屏幕显示标志位
     }
 }
@@ -172,7 +183,7 @@ int main(void)
     DisableGlobalIRQ();
     board_init();           //务必保留，本函数用于初始化MPU 时钟 调试串口
 
-    lcd_init();
+    ips114_init();
 
     //串口的抢占优先级一定要比外部中断的抢占优先级高，这样才能实时接收从机数据
     //串口的抢占优先级一定要比外部中断的抢占优先级高，这样才能实时接收从机数据
@@ -190,8 +201,8 @@ int main(void)
     Duty_Init();
     Encoder_Init_Master();
 
+    //ips114_showstr(0, 3, "test");
     //systick_delay_ms(300);
-
     //此处编写用户代码(例如：外设初始化代码等)
     //总中断最后开启
     EnableGlobalIRQ(0);
@@ -201,15 +212,15 @@ int main(void)
         {
             //将接收到的从机数据显示到屏幕上。
 
-            lcd_showint16(0, 0, slave_encoder_left);
-            lcd_showint16(80, 0, slave_encoder_right);
-            lcd_showint16(0, 1, master_encoder_left);
-            lcd_showint16(80, 1, master_encoder_right);
+            ips114_showint16(0, 0, slave_encoder_left);
+            ips114_showint16(80, 0, slave_encoder_right);
+            ips114_showint16(0, 1, master_encoder_left);
+            ips114_showint16(80, 1, master_encoder_right);
 
-            lcd_showfloat(0,2,Pid_fl.out,4,2);
-            lcd_showfloat(80,2,Pid_fr.out,4,2);
-            lcd_showfloat(0,3,Pid_rl.out,4,2);
-            lcd_showfloat(80,3,Pid_rr.out,4,2);
+            ips114_showfloat(0, 2, Pid_fl.out,4, 2);
+            ips114_showfloat(80,2,Pid_fr.out, 4, 2);
+            ips114_showfloat(0, 3, Pid_rl.out, 4, 2);
+            ips114_showfloat(80, 3, Pid_fr.out, 4, 2);
 
             show_flag = 0;
         }

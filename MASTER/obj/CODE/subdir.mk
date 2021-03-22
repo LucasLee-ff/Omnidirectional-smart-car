@@ -5,15 +5,18 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../CODE/Motor.c \
-../CODE/PID.c 
+../CODE/PID.c \
+../CODE/shangweiji.c 
 
 OBJS += \
 ./CODE/Motor.o \
-./CODE/PID.o 
+./CODE/PID.o \
+./CODE/shangweiji.o 
 
 C_DEPS += \
 ./CODE/Motor.d \
-./CODE/PID.d 
+./CODE/PID.d \
+./CODE/shangweiji.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

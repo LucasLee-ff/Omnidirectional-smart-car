@@ -24,15 +24,24 @@
 #include "headfile.h"
 #include "TrackGet.h"
 
-#define LINE_LEN                11              //数据长度
+#define LINE_LEN                14              //数据长度
 uint8 temp_buff[LINE_LEN];                      //从机向主机发送数据BUFF
 
 int16 slave_encoder_left;                       //从机左编码器值
 int16 slave_encoder_right;                      //从机右编码器值
 int16 slave_position;                           //从机转角值
+uint8 half_Width[50]={0};
+float curvature;
+extern uint8 islost_record[3][50],centre_Delta_Exceed_Cnt;
 
-extern uint8 Border[3][High];
-extern uint8 validLine;
+extern int8 stateRing_Sign,directRing_Sign;//圆环相关标志位
+extern int8 stateBranch_Sign,directBranch_Sign;//岔路相关标志位
+
+extern int16 Border[3][High],lostLeft_Sign,lostRight_Sign,validLine,searsh_mid_line;
+extern int16 inflection_A,inflection_B,inflection_C;
+
+extern track_Type_Enum track;//扩展后通信协议需发送当前的赛道类型
+int16 ttt;
 //-------------------------------------------------------------------------------------------------------------------
 //  @brief      获取传感器数据
 //  @param      void
@@ -42,7 +51,6 @@ extern uint8 validLine;
 //-------------------------------------------------------------------------------------------------------------------
 void get_sensor_data(void)
 {
-    //这里仅仅是提供一个模拟数据
     slave_encoder_left=timer_quad_get(TIMER_2);
     slave_encoder_right=timer_quad_get(TIMER_3);
     timer_quad_clear(TIMER_2);
@@ -59,6 +67,7 @@ void get_sensor_data(void)
 void process_data(void)
 {
     temp_buff[0] = 0xD8;                         //帧头
+
     temp_buff[1] = 0xB0;                         //功能字
     temp_buff[2] = slave_encoder_left>>8;        //数据高8位
     temp_buff[3] = slave_encoder_left&0xFF;      //数据低8位
@@ -71,7 +80,11 @@ void process_data(void)
     temp_buff[8] = slave_position>>8;            //数据高8位
     temp_buff[9] = slave_position&0xFF;          //数据低8位
 
-    temp_buff[10] = 0xEE;                        //帧尾
+    temp_buff[10] = 0xB3;
+    temp_buff[11] = ttt>>8;
+    temp_buff[12] = ttt&0xFF;
+
+    temp_buff[13] = 0xEE;                        //帧尾
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -102,60 +115,74 @@ int main(void)
     DisableGlobalIRQ();
     board_init();           //务必保留，本函数用于初始化MPU 时钟 调试串口
 
-    ips114_init();
+    lcd_init();
     mt9v03x_init();
 
     gpio_init(A0, GPO, 0, GPIO_PIN_CONFIG);                 //同步引脚初始化
     uart_init(UART_3, 460800, UART3_TX_B10, UART3_RX_B11);  //串口3初始化，波特率460800
-    timer_pit_interrupt_ms(TIMER_4, 5);                     //定时器4初始化
+    timer_pit_interrupt_ms(TIMER_4, 10);//原周期5ms，现改为10ms  定时器4初始化
+
+    gpio_interrupt_init(B2, FALLING, GPIO_INT_CONFIG);       //A0初始化为GPIO 上升沿触发
+    nvic_init(EXTI2_IRQn, 1, 1, ENABLE);                    //EXTI0优先级配置，抢占优先级1，次优先级1
 
     timer_quad_init(TIMER_2,TIMER2_CHA_A15,TIMER2_CHB_B3);//编码器1初始化，使用定时器2
     timer_quad_init(TIMER_3,TIMER3_CHA_B4,TIMER3_CHB_B5);//编码器2初始化，使用定时器3
 
     //systick_delay_ms(200);
-    //ips114_showstr(0,0,"test");
     EnableGlobalIRQ(0);
     uint8 post_image[MT9V03X_H][MT9V03X_W];
-    uint8 threshold,threshold_Last;
-    uint8 count=0;
+    uint8 threshold=100;
     int16 slave_last;
-    uint8 cnt=0;
-    float k;
+    uint8 count=0;
     while(1)
     {
         if(mt9v03x_finish_flag==1)
        {
-           //threshold=OTSU(mt9v03x_image[0]);
-           trackBorder_Get(100);
-           slave_position=centre_line_get();
-           k=Regression(Border[0]);
-           if(cnt==0)
-           {
-               slave_last=slave_position;
-               cnt=1;
-           }
-           else
-           {
-               if(slave_position-slave_last>50||slave_position-slave_last<-50)
-                   slave_position=slave_last;
-               else
-                   slave_last=slave_position;
-           }
+           trackBorder_Get(threshold);//根据阈值得到预备边界
+
+           judge_Ring();
+           repair_Ring(threshold);
+
+           if(stateRing_Sign!=4)
+               slave_position=centre_line_get();//根据中线得到偏角值
+
+           ttt=1;
+
+           if(count==0)//转角值滤波
+          {
+              slave_last=slave_position;
+              count=1;
+          }
+          else
+          {
+              if(slave_position-slave_last>50||slave_position-slave_last<-50)
+                  slave_position=slave_last;
+              else
+                  slave_last=slave_position;
+          }
 
            for(int i=0;i<MT9V03X_H;i++)
                for(int j=0;j<MT9V03X_W;j++)
                {
-                   if(mt9v03x_image[i][j]>100)
+                   if(mt9v03x_image[i][j]>threshold)
                        post_image[i][j]=255;
                    else
                        post_image[i][j]=0;
                }
-           for(int i=High-1;i>=validLine;i--)//validLine
-               post_image[i][Border[CENTRE][i]]=0;
-           ips114_displayimage032(post_image[0],MT9V03X_W,MT9V03X_H);
-           ips114_showint16(0,5,slave_position);
-           ips114_showuint8(80,5,threshold);
 
+           for(int i=High-1;i>=validLine;i--)//validLine,在屏幕上显示中线及边界
+           {
+               post_image[i][Border[LEFT][i]]=0;
+               post_image[i][Border[CENTRE][i]]=0;
+               post_image[i][Border[RIGHT][i]]=0;
+           }
+
+           lcd_displayimage032(post_image[0],MT9V03X_W,MT9V03X_H);
+           lcd_showint8(0, 3, stateRing_Sign);
+           lcd_showint8(80, 3, directRing_Sign);
+
+           lcd_showint16(0,7,validLine);
+           lcd_showint16(80, 7, slave_position);
            mt9v03x_finish_flag=0;
        }
     }

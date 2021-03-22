@@ -1,9 +1,10 @@
-USER/main.o: ../USER/main.c ../Libraries/seekfree_libraries/headfile.h \
+CODE/shangweiji.o: ../CODE/shangweiji.c ../CODE/shangweiji.h \
+ ../Libraries/seekfree_libraries/zf_uart.h \
  ../Libraries/seekfree_libraries/common.h \
  ../Libraries/wch_libraries/Peripheral/ch32v10x.h \
- ../Libraries/wch_libraries/Core/core_riscv.h ../Libraries/board/board.h \
+ ../Libraries/wch_libraries/Core/core_riscv.h \
+ ../Libraries/seekfree_libraries/headfile.h ../Libraries/board/board.h \
  ../Libraries/seekfree_libraries/common.h \
- ../Libraries/seekfree_libraries/zf_uart.h \
  ../Libraries/wch_libraries/Peripheral/ch32v10x_adc.h \
  ../Libraries/wch_libraries/Peripheral/ch32v10x.h \
  ../Libraries/wch_libraries/Peripheral/ch32v10x_bkp.h \
@@ -51,10 +52,11 @@ USER/main.o: ../USER/main.c ../Libraries/seekfree_libraries/headfile.h \
  ../Libraries/seekfree_peripheral/SEEKFREE_WIRELESS.h \
  ../Libraries/seekfree_peripheral/SEEKFREE_TSL1401.h \
  ../Libraries/seekfree_libraries/zf_gpio.h \
- ../Libraries/seekfree_peripheral/SEEKFREE_ABSOLUTE_ENCODER.h \
- ../CODE/Pid.h ../CODE/Motor.h ../CODE/shangweiji.h
+ ../Libraries/seekfree_peripheral/SEEKFREE_ABSOLUTE_ENCODER.h
 
-../Libraries/seekfree_libraries/headfile.h:
+../CODE/shangweiji.h:
+
+../Libraries/seekfree_libraries/zf_uart.h:
 
 ../Libraries/seekfree_libraries/common.h:
 
@@ -62,11 +64,11 @@ USER/main.o: ../USER/main.c ../Libraries/seekfree_libraries/headfile.h \
 
 ../Libraries/wch_libraries/Core/core_riscv.h:
 
+../Libraries/seekfree_libraries/headfile.h:
+
 ../Libraries/board/board.h:
 
 ../Libraries/seekfree_libraries/common.h:
-
-../Libraries/seekfree_libraries/zf_uart.h:
 
 ../Libraries/wch_libraries/Peripheral/ch32v10x_adc.h:
 
@@ -163,9 +165,3 @@ USER/main.o: ../USER/main.c ../Libraries/seekfree_libraries/headfile.h \
 ../Libraries/seekfree_libraries/zf_gpio.h:
 
 ../Libraries/seekfree_peripheral/SEEKFREE_ABSOLUTE_ENCODER.h:
-
-../CODE/Pid.h:
-
-../CODE/Motor.h:
-
-../CODE/shangweiji.h:
