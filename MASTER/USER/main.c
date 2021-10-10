@@ -40,14 +40,18 @@ int16 slave_encoder_right;              //从机右编码器值
 int16 slave_position;                   //从机转角值
 int16 master_encoder_left;              //主机左编码器值
 int16 master_encoder_right;             //主机右编码器值
-int16 track;                       //赛道类型
 
-uint8 show_flag;                        //数据显示标志位
+int16 transinfo,transinfo_last=5;                       //传输信息
 
-int16 target;
-int16 target_fl,target_fr,target_rl,target_rr;
-
-Pid_Param Pid_fl,Pid_fr,Pid_rl,Pid_rr; //Pid参数结构
+int8 motion_Sign;//
+uint8 show_flag;//数据显示标志位
+int16 slave_position_filter=0,slave_position_filter_Cnt=0;
+int16 target_main_speed=100,target_sup_speed=70,target_rotate_speed=80,target_out_speed=70,target_rotate_sup_speed=60;
+int16 target_fl_speed,target_fr_speed,target_rl_speed,target_rr_speed;
+Pid_Param Pid_fl,Pid_fr,Pid_rl,Pid_rr,Pid_dir_redbull,Pid_dir_crab; //Pid参数结构
+uint16 servo_Init_Duty=750;
+uint16 servo_StoL_duty = 1250,servo_StoR_duty=250;
+uint16 servo_toS_duty=750;//舵机pwm信号
 
 //-------------------------------------------------------------------------------------------------------------------
 //  @brief      获取从机数据
@@ -99,7 +103,7 @@ void data_analysis(uint8 *line)
     if(line[1] == 0xB0)    slave_encoder_left  = ((int16)line[2] << 8) | line[3];
     if(line[4] == 0xB1)    slave_encoder_right = ((int16)line[5] << 8) | line[6];
     if(line[7] == 0xB2)    slave_position      = ((int16)line[8] << 8) | line[9];
-    if(line[10] == 0xB3)   track               = ((int16)line[11] <<8) | line[12];
+    if(line[10] == 0xB3)   transinfo           = ((int16)line[11] <<8) | line[12];
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -144,29 +148,157 @@ void EXTI0_IRQHandler(void)
         timer_quad_clear(TIMER_2);
         timer_quad_clear(TIMER_3);
 
-        float k;//大圆环 速度95 转角0.6  S弯 55 0.5
-
-        target=100;//80 120 90_0.75 115 1.2
-        k=0.5;//很稳 100，0.95
-
-        //最初版本 target=35 k=0.28
-        if(slave_position>2||slave_position<-2)
+        if(slave_position_filter_Cnt==0)//低通滤波
         {
-            target_fl=target+k*slave_position;
-            target_fr=target-k*slave_position;
-            target_rl=target+k*slave_position;
-            target_rr=target-k*slave_position;
+            slave_position_filter=slave_position;
+            slave_position_filter_Cnt=1;
         }
         else
-            target_fl=target_fr=target_rl=target_rr=target;
+        {
+            slave_position=slave_position*0.8+slave_position_filter*0.2;
+            slave_position_filter=slave_position;
+        }
 
-        OutPut_Data(slave_encoder_left, slave_encoder_right, master_encoder_left, master_encoder_right);
+        switch(motion_Sign)
+        {
+        case 0://出库状态
+            if(transinfo==16)
+                motion_Sign=1;
+            break;
+        case 1://车直走状态
+            if(transinfo==46)//需要进右岔路
+                motion_Sign=4;
+            else if(transinfo==44)//需要进左岔路
+                motion_Sign=5;
+            else if(transinfo==11)//左旋转进车库
+                motion_Sign=8;
+            else if(transinfo==13)//右旋转进车库
+                motion_Sign=9;
+            break;
+        case 2://车在左岔路中横着走
+            if(transinfo==44)//变回直走状态时需要左旋转
+                motion_Sign=6;
+            break;
+        case 3://车在右岔路中横着走
+            if(transinfo==46)//变回直走状态时需要右旋转
+                motion_Sign=7;
+            break;
+        case 4://车直走状态要进入右岔路，需要左旋转
+            if(transinfo==33)
+                motion_Sign=3;
+            break;
+        case 5://车直走状态要进入左岔路，需要右旋转
+            if(transinfo==33)
+                motion_Sign=2;
+            break;
+        case 6://车在左岔路中恢复直走状态，需要左旋转
+            if(transinfo==33)
+                motion_Sign=1;
+            break;
+        case 7://车在右岔路中恢复直走状态，需要右旋转
+            if(transinfo==33)
+                motion_Sign=1;
+            break;
+        case 8://左旋转进车库
+            if(transinfo==33)
+                motion_Sign=1;
+            break;
+        case 9://右旋转进车库
+            if(transinfo==33)
+                motion_Sign=1;
+        }
 
-        PID_incCtrl(&Pid_fl,(float)(target_fl-slave_encoder_left));
-        PID_incCtrl(&Pid_fr,(float)(target_fr-slave_encoder_right));
-        PID_incCtrl(&Pid_rl,(float)(target_rl-master_encoder_left));
-        PID_incCtrl(&Pid_rr,(float)(target_rr-master_encoder_right));
+        switch(motion_Sign)
+        {
+        case 0:
+            if(transinfo==55)//左出库
+            {
+                target_fl_speed=target_out_speed;
+                target_fr_speed=-target_out_speed;
+                target_rl_speed=-target_out_speed;
+                target_rr_speed=target_out_speed;
+            }
+            else if(transinfo==57)//右出库
+            {
+                target_fl_speed=-target_out_speed;
+                target_fr_speed=target_out_speed;
+                target_rl_speed=target_out_speed;
+                target_rr_speed=-target_out_speed;
+            }
+            break;
+        case 1://直走
+            PID_posCtrl(&Pid_dir_redbull, slave_position);
+            target_fl_speed=target_main_speed+Pid_dir_redbull.out;
+            target_fr_speed=target_main_speed-Pid_dir_redbull.out;
+            target_rl_speed=target_main_speed+Pid_dir_redbull.out;
+            target_rr_speed=target_main_speed-Pid_dir_redbull.out;
+            break;
+        case 2://左岔路
+            PID_posCtrl(&Pid_dir_crab, slave_position);
+            target_fl_speed=-target_sup_speed+Pid_dir_crab.out;
+            target_fr_speed=target_sup_speed-Pid_dir_crab.out;
+            target_rl_speed=target_sup_speed+Pid_dir_crab.out;
+            target_rr_speed=-target_sup_speed-Pid_dir_crab.out;
+            break;
+        case 3://右岔路
+            PID_posCtrl(&Pid_dir_crab, slave_position);
+            target_fl_speed=target_sup_speed+Pid_dir_crab.out;
+            target_fr_speed=-target_sup_speed-Pid_dir_crab.out;
+            target_rl_speed=-target_sup_speed+Pid_dir_crab.out;
+            target_rr_speed=target_sup_speed-Pid_dir_crab.out;
+            break;
+        case 4://车直走状态，进入右岔路需要左旋转
+            pwm_duty(PWM1_CH1_A8, servo_StoR_duty);
+            target_fl_speed=-target_rotate_speed;
+            target_fr_speed=target_rotate_speed;
+            target_rl_speed=-target_rotate_speed;
+            target_rr_speed=target_rotate_speed;
+            break;
+        case 6://车在左岔路中，变为直走需要左旋转
+            pwm_duty(PWM1_CH1_A8, servo_toS_duty);
+            target_fl_speed=-target_rotate_sup_speed;
+            target_fr_speed=target_rotate_sup_speed;
+            target_rl_speed=-target_rotate_sup_speed;
+            target_rr_speed=target_rotate_sup_speed;
+            break;
+        case 5://车直走状态，进入左岔路需要右旋转
+            pwm_duty(PWM1_CH1_A8, servo_StoL_duty);
+            target_fl_speed=target_rotate_speed;
+            target_fr_speed=-target_rotate_speed;
+            target_rl_speed=target_rotate_speed;
+            target_rr_speed=-target_rotate_speed;
+            break;
+        case 7://车在右岔路中，变为直走需要右旋转
+            pwm_duty(PWM1_CH1_A8, servo_toS_duty);
+            target_fl_speed=target_rotate_sup_speed;
+            target_fr_speed=-target_rotate_sup_speed;
+            target_rl_speed=target_rotate_sup_speed;
+            target_rr_speed=-target_rotate_sup_speed;
+            break;
+        case 8:
+            target_fl_speed=-target_rotate_sup_speed;
+            target_fr_speed=target_rotate_sup_speed;
+            target_rl_speed=-target_rotate_sup_speed;
+            target_rr_speed=target_rotate_sup_speed;
+            break;
+        case 9:
+            target_fl_speed=target_rotate_sup_speed;
+            target_fr_speed=-target_rotate_sup_speed;
+            target_rl_speed=target_rotate_sup_speed;
+            target_rr_speed=-target_rotate_sup_speed;
+            break;
+        }
+
+        if(transinfo==90)//车库刹车
+            target_fl_speed=target_fr_speed=target_rl_speed=target_rr_speed=0;
+
+        PID_incCtrl(&Pid_fl,(float)(target_fl_speed-slave_encoder_left));
+        PID_incCtrl(&Pid_fr,(float)(target_fr_speed-slave_encoder_right));
+        PID_incCtrl(&Pid_rl,(float)(target_rl_speed-master_encoder_left));
+        PID_incCtrl(&Pid_rr,(float)(target_rr_speed-master_encoder_right));
+
         Duty_All((int32)Pid_fl.out,(int32)Pid_fr.out,(int32)Pid_rl.out,(int32)Pid_rr.out);
+
         show_flag = 1;                                  //屏幕显示标志位
     }
 }
@@ -183,49 +315,30 @@ int main(void)
     DisableGlobalIRQ();
     board_init();           //务必保留，本函数用于初始化MPU 时钟 调试串口
 
-    ips114_init();
-
     //串口的抢占优先级一定要比外部中断的抢占优先级高，这样才能实时接收从机数据
-    //串口的抢占优先级一定要比外部中断的抢占优先级高，这样才能实时接收从机数据
-    //串口的抢占优先级一定要比外部中断的抢占优先级高，这样才能实时接收从机数据
-
     uart_init(UART_3, 460800, UART3_TX_B10, UART3_RX_B11);  //串口3初始化，波特率460800
     uart_rx_irq(UART_3, ENABLE);                            //默认抢占优先级0 次优先级0。
     gpio_interrupt_init(A0, RISING, GPIO_INT_CONFIG);       //A0初始化为GPIO 上升沿触发
-    nvic_init(EXTI0_IRQn, 1, 1, ENABLE);                    //EXTI0优先级配置，抢占优先级1，次优先级1
+    nvic_init(EXTI0_IRQn, 1, 1, ENABLE);     //EXTI0优先级配置，抢占优先级1，次优先级1
 
-    PID_Init(&Pid_fl);
-    PID_Init(&Pid_fr);
-    PID_Init(&Pid_rl);
-    PID_Init(&Pid_rr);
+    pwm_init(PWM1_CH1_A8, 50, 750);  //舵机初始化到中间位置
+    motion_Sign=0;//运动方式控制
+    PID_Init(&Pid_fl,0);
+    PID_Init(&Pid_fr,1);
+    PID_Init(&Pid_rl,2);
+    PID_Init(&Pid_rr,3);
+    PID_dir_Init(&Pid_dir_redbull,0);
+    PID_dir_Init(&Pid_dir_crab,1);
     Duty_Init();
     Encoder_Init_Master();
-
-    //ips114_showstr(0, 3, "test");
-    //systick_delay_ms(300);
-    //此处编写用户代码(例如：外设初始化代码等)
     //总中断最后开启
     EnableGlobalIRQ(0);
+
     while(1)
     {
-        if(show_flag)
+        if(show_flag==1)
         {
-            //将接收到的从机数据显示到屏幕上。
-
-            ips114_showint16(0, 0, slave_encoder_left);
-            ips114_showint16(80, 0, slave_encoder_right);
-            ips114_showint16(0, 1, master_encoder_left);
-            ips114_showint16(80, 1, master_encoder_right);
-
-            ips114_showfloat(0, 2, Pid_fl.out,4, 2);
-            ips114_showfloat(80,2,Pid_fr.out, 4, 2);
-            ips114_showfloat(0, 3, Pid_rl.out, 4, 2);
-            ips114_showfloat(80, 3, Pid_fr.out, 4, 2);
-
-            show_flag = 0;
+            show_flag=0;
         }
     }
 }
-
-
-

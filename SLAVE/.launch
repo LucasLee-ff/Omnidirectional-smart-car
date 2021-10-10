@@ -47,12 +47,12 @@
   <booleanAttribute key="org.eclipse.cdt.dsf.gdb.UPDATE_THREADLIST_ON_SUSPEND" value="false" />
   <intAttribute key="org.eclipse.cdt.launch.ATTR_BUILD_BEFORE_LAUNCH_ATTR" value="2" />
   <stringAttribute key="org.eclipse.cdt.launch.COREFILE_PATH" value="" />
-  <stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value="obj\SLAVE.elf" />
-  <stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value="SLAVE" />
+  <stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value="obj\100_key_SLAVE.elf" />
+  <stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value="100_key_SLAVE" />
   <booleanAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_AUTO_ATTR" value="true" />
   <stringAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR" value="ilg.gnumcueclipse.managedbuild.cross.riscv.config.elf.release.1008047074" />
   <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
-    <listEntry value="/SLAVE" />
+    <listEntry value="/100_key_SLAVE" />
   </listAttribute>
   <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
     <listEntry value="4" />

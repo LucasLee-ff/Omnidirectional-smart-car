@@ -52,7 +52,7 @@ USER/main.o: ../USER/main.c ../Libraries/seekfree_libraries/headfile.h \
  ../Libraries/seekfree_peripheral/SEEKFREE_TSL1401.h \
  ../Libraries/seekfree_libraries/zf_gpio.h \
  ../Libraries/seekfree_peripheral/SEEKFREE_ABSOLUTE_ENCODER.h \
- ../CODE/TrackGet.h
+ ../CODE/TrackGet.h ../CODE/key.h
 
 ../Libraries/seekfree_libraries/headfile.h:
 
@@ -165,3 +165,5 @@ USER/main.o: ../USER/main.c ../Libraries/seekfree_libraries/headfile.h \
 ../Libraries/seekfree_peripheral/SEEKFREE_ABSOLUTE_ENCODER.h:
 
 ../CODE/TrackGet.h:
+
+../CODE/key.h:

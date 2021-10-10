@@ -28,14 +28,14 @@ void CRC16(uint8 *Array,uint8 *Rcvbuf,unsigned int Len )  //产生校验码
 void OutPut_Data(int ch1,int ch2,int ch3,int ch4)
 {
 	uint8 Array[8],Rcvbuf[2];
-	Array[0]=(uint8)(ch1&0x00FF);
-	Array[1]=(uint8)(ch1&0xFF00);
-	Array[2]=(uint8)(ch2&0x00FF);
-	Array[3]=(uint8)(ch2&0xFF00);
-	Array[4]=(uint8)(ch3&0x00FF);
-	Array[5]=(uint8)(ch3&0xFF00);
-	Array[6]=(uint8)(ch4&0x00FF);
-	Array[7]=(uint8)(ch4&0xFF00);
+	Array[0]=(int8)(ch1&0x00FF);
+	Array[1]=(int8)(ch1&0xFF00);
+	Array[2]=(int8)(ch2&0x00FF);
+	Array[3]=(int8)(ch2&0xFF00);
+	Array[4]=(int8)(ch3&0x00FF);
+	Array[5]=(int8)(ch3&0xFF00);
+	Array[6]=(int8)(ch4&0x00FF);
+	Array[7]=(int8)(ch4&0xFF00);
 	CRC16(Array,Rcvbuf,8);
 	/*printf("Array[0]:%d\r\n",Array[0]);
 	printf("Array[1]:%d\r\n",Array[1]);

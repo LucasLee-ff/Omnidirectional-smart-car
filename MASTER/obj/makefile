@@ -41,34 +41,34 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 SECONDARY_FLASH += \
-MASTER.hex \
+80_key_MASTER.hex \
 
 SECONDARY_LIST += \
-MASTER.lst \
+80_key_MASTER.lst \
 
 SECONDARY_SIZE += \
-MASTER.siz \
+80_key_MASTER.siz \
 
 
 # 所有目标
-all: MASTER.elf secondary-outputs
+all: 80_key_MASTER.elf secondary-outputs
 
 # 工具调用
-MASTER.elf: $(OBJS) $(USER_OBJS)
-	@	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -msmall-data-limit=8 -mno-save-restore -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized  -g -T .ld -nostartfiles -Xlinker --gc-sections -L"../" -Wl,-Map,"MASTER.map" --specs=nano.specs --specs=nosys.specs -o "MASTER.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+80_key_MASTER.elf: $(OBJS) $(USER_OBJS)
+	@	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized  -g -T .ld -nostartfiles -Xlinker --gc-sections -L"../" -Wl,-Map,"80_key_MASTER.map" --specs=nano.specs --specs=nosys.specs -o "80_key_MASTER.elf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@	@
-MASTER.hex: MASTER.elf
-	@	riscv-none-embed-objcopy -O ihex "MASTER.elf"  "MASTER.hex"
+80_key_MASTER.hex: 80_key_MASTER.elf
+	@	riscv-none-embed-objcopy -O ihex "80_key_MASTER.elf"  "80_key_MASTER.hex"
 	@	@
-MASTER.lst: MASTER.elf
-	@	riscv-none-embed-objdump --source --all-headers --demangle --line-numbers --wide "MASTER.elf" > "MASTER.lst"
+80_key_MASTER.lst: 80_key_MASTER.elf
+	@	riscv-none-embed-objdump --source --all-headers --demangle --line-numbers --wide "80_key_MASTER.elf" > "80_key_MASTER.lst"
 	@	@
-MASTER.siz: MASTER.elf
-	@	riscv-none-embed-size --format=berkeley "MASTER.elf"
+80_key_MASTER.siz: 80_key_MASTER.elf
+	@	riscv-none-embed-size --format=berkeley "80_key_MASTER.elf"
 	@	@
 # 其他目标
 clean:
-	-$(RM) $(ASM_UPPER_DEPS)$(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS) MASTER.elf
+	-$(RM) $(ASM_UPPER_DEPS)$(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS) 80_key_MASTER.elf
 	-@
 secondary-outputs: $(SECONDARY_FLASH) $(SECONDARY_LIST) $(SECONDARY_SIZE)
 

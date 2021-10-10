@@ -41,34 +41,34 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 SECONDARY_FLASH += \
-SLAVE.hex \
+100_key_SLAVE.hex \
 
 SECONDARY_LIST += \
-SLAVE.lst \
+100_key_SLAVE.lst \
 
 SECONDARY_SIZE += \
-SLAVE.siz \
+100_key_SLAVE.siz \
 
 
 # 所有目标
-all: SLAVE.elf secondary-outputs
+all: 100_key_SLAVE.elf secondary-outputs
 
 # 工具调用
-SLAVE.elf: $(OBJS) $(USER_OBJS)
-	@	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -msmall-data-limit=8 -mno-save-restore -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized  -g -T .ld -nostartfiles -Xlinker --gc-sections -L"../" -Wl,-Map,"SLAVE.map" --specs=nano.specs --specs=nosys.specs -o "SLAVE.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+100_key_SLAVE.elf: $(OBJS) $(USER_OBJS)
+	@	@	riscv-none-embed-gcc -march=rv32imac -mabi=ilp32 -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized  -g -T .ld -nostartfiles -Xlinker --gc-sections -L"../" -Wl,-Map,"100_key_SLAVE.map" --specs=nano.specs --specs=nosys.specs -o "100_key_SLAVE.elf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@	@
-SLAVE.hex: SLAVE.elf
-	@	riscv-none-embed-objcopy -O ihex "SLAVE.elf"  "SLAVE.hex"
+100_key_SLAVE.hex: 100_key_SLAVE.elf
+	@	riscv-none-embed-objcopy -O ihex "100_key_SLAVE.elf"  "100_key_SLAVE.hex"
 	@	@
-SLAVE.lst: SLAVE.elf
-	@	riscv-none-embed-objdump --source --all-headers --demangle --line-numbers --wide "SLAVE.elf" > "SLAVE.lst"
+100_key_SLAVE.lst: 100_key_SLAVE.elf
+	@	riscv-none-embed-objdump --source --all-headers --demangle --line-numbers --wide "100_key_SLAVE.elf" > "100_key_SLAVE.lst"
 	@	@
-SLAVE.siz: SLAVE.elf
-	@	riscv-none-embed-size --format=berkeley "SLAVE.elf"
+100_key_SLAVE.siz: 100_key_SLAVE.elf
+	@	riscv-none-embed-size --format=berkeley "100_key_SLAVE.elf"
 	@	@
 # 其他目标
 clean:
-	-$(RM) $(ASM_UPPER_DEPS)$(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS) SLAVE.elf
+	-$(RM) $(ASM_UPPER_DEPS)$(OBJS)$(SECONDARY_FLASH)$(SECONDARY_LIST)$(SECONDARY_SIZE)$(ASM_DEPS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS) 100_key_SLAVE.elf
 	-@
 secondary-outputs: $(SECONDARY_FLASH) $(SECONDARY_LIST) $(SECONDARY_SIZE)
 

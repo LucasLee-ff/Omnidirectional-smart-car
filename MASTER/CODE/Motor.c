@@ -12,22 +12,22 @@
 
 void Duty_Init()
 {
-    pwm_init(PWM4_CH1_B6,PWM_FREQ,0);//电机PWM引脚初始化
-    pwm_init(PWM4_CH2_B7,PWM_FREQ,0);
+    pwm_init(PWM4_CH2_B7,PWM_FREQ,0);//电机PWM引脚初始化PWM4_CH1_B6
+    pwm_init(PWM4_CH1_B6,PWM_FREQ,0);
     pwm_init(PWM4_CH3_B8,PWM_FREQ,0);
     pwm_init(PWM4_CH4_B9,PWM_FREQ,0);
 
-    gpio_init(C10,GPO,0,GPIO_PIN_CONFIG);//电机方向引脚初始化
-    gpio_init(C11,GPO,0,GPIO_PIN_CONFIG);
+    gpio_init(C11,GPO,0,GPIO_PIN_CONFIG);//电机方向引脚初始化
+    gpio_init(C10,GPO,0,GPIO_PIN_CONFIG);
     gpio_init(B12,GPO,1,GPIO_PIN_CONFIG);
-    gpio_init(A8,GPO,1,GPIO_PIN_CONFIG);
+    gpio_init(C12,GPO,1,GPIO_PIN_CONFIG);//C12
     return;
 }
 
 void Duty_Close()
 {
-    pwm_stop(PWM4_CH1_B6);
     pwm_stop(PWM4_CH2_B7);
+    pwm_stop(PWM4_CH1_B6);
     pwm_stop(PWM4_CH3_B8);
     pwm_stop(PWM4_CH4_B9);
 }
@@ -47,31 +47,31 @@ void Duty_Single(Wheel_Type wh,int32 duty)//设定某个轮子的占空比
     {
     case FL:
         if(duty>0)
-            gpio_set(C10,0);
-        else
-            gpio_set(C10,1);
-        pwm_duty(PWM4_CH1_B6,tmp);
-        break;
-    case FR:
-        if(duty>0)
             gpio_set(C11,0);
         else
             gpio_set(C11,1);
         pwm_duty(PWM4_CH2_B7,tmp);
         break;
+    case FR:
+        if(duty>0)
+            gpio_set(C10,1);
+        else
+            gpio_set(C10,0);
+        pwm_duty(PWM4_CH1_B6,tmp);
+        break;
     case RL:
         if(duty>0)
-            gpio_set(B12,1);
-        else
             gpio_set(B12,0);
+        else
+            gpio_set(B12,1);
         pwm_duty(PWM4_CH3_B8,tmp);
         break;
     case RR:
         if(duty>0)
-            gpio_set(A8,1);
+            gpio_set(C12,0);//C12
         else
-            gpio_set(A8,0);
-        pwm_duty(PWM4_CH4_B9,tmp);
+            gpio_set(C12,1);
+        pwm_duty(PWM4_CH4_B9,tmp);//C12
         break;
     }
     return;

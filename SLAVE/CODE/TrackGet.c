@@ -8,48 +8,99 @@
 #include "TrackGet.h"
 
 int16 delta=1;//Ã¿¸ô¼¸ÁÐÉ¨Ãè±ßÏß
-int16 EdgeL,EdgeR,lastEdgeL,lastEdgeR;//¼ÇÂ¼×óÓÒ±ß½ç
-int16 validLine,searsh_mid_line;;//ÓÐÐ§É¨ÃèÐÐ¼ÆÊý
-int16 lostLeft_Sign,lostRight_Sign,leftLostLine_Cnt,rightLostLine_Cnt;//¶ªÏß±êÖ¾
+int16 EdgeL,EdgeR;//¼ÇÂ¼×óÓÒ±ß½ç
+int16 validLine,searsh_mid_line,searsh_line_record[Width];//ÓÐÐ§É¨ÃèÐÐ¼ÆÊý
+int16 triangle_index;
+int16 shortest_col_index;
+int16 leftLostLine_Cnt,rightLostLine_Cnt;//¶ªÏß±êÖ¾
 int8 stateRing_Sign=0,directRing_Sign=-1;//Ô²»·Ïà¹Ø±êÖ¾Î»
-int8 stateBranch_Sign=0,encounter_Cnt=-1;//²íÂ·Ïà¹Ø±êÖ¾Î»
-int8 stateGarage_Sign=0,directGarage_Sign=-1;//³µ¿âÏà¹Ø±êÖ¾Î»
+int8 stateBranch_Sign=0,directBranch_Sign=0;//²íÂ·Ïà¹Ø±êÖ¾Î»
+int8 stateGarage_Sign=0,directGarage_Sign=-1,is_Out_Garage = 0;//³µ¿âÏà¹Ø±êÖ¾Î»
 
-int16 repair_Cnt;
+int16 inflection_frontZebra,inflection_rearZebra;//³µ¿â¹Õµã
+int16 inflection_A,inflection_B,inflection_C;//Ô²»·¹Õµã£¬ÓÉ½üµ½Ô¶¶¨ÒåÈý¸ö¹Õµã
+int16 repair_Cnt;//²¹ÏßÑ­»·¼ÆÊýÓÃ
+int16 track_Width[High];//¼ÇÂ¼É¨Ãè±ß½çµÃµ½µÄÈüµÀ¿í¶È
+int16 garage_Record[High], index_Garage;//ÓÐ°ßÂíÏßµÄÐÐ
+int16 Border[3][High];//×óÓÒÖÐÊý×é
+uint8 islost_record[3][High];//Ä³ÐÐ×ó²à»òÓÒ²àÊÇ·ñ¶ªÏßÊý×é
+int16 default_branchjudge_line=25;//²íÂ·Ê¶±ð¸¨ÖúÎ»
+int16 left_Delta_Exceed_Cnt,right_Delta_Exceed_Cnt;//Ô²»·Ê¶±ð¸¨ÖúÎ»
+int16 inflection_A_last=30,inflection_C_last=-1;
+extern int16 transinfo;
+extern uint8  mt9v03x_image[MT9V03X_H][MT9V03X_W];
+extern float rotate_Angle;
+extern int16 left_OutGarage_Start,right_OutGarage_Start;
+extern int16 Zebra_meet_Cnt,out_Aux;
 
-extern uint8  mt9v03x_image[High][Width];
+int16 in_braking_point=33, out_braking_point=46;
+int16 finish_point=37;
 
-track_Type_Enum track=Straight;
+int16 index_t=High-1;
 
-int16 Border[3][High];
-int16 halftrack_Width[High];
-uint8 islost_record[3][High];
 int16 direct_Weight[High]=
-{50,48,46,44,42,
- 40,38,36,34,32,
- 30,28,26,24,22,
- 20,18,16,14,12,
- 10,8,6,4,2,
- 15,15,15,15,15,
- 0,0,0,0,0,
- 0,0,0,0,0,
- 0,0,0,0,0,
- 0,0,0,0,0};
-/*
- {10,9,8,5,4,3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
- */
-int16 default_judge_line=40;
-uint8 centre_Delta_Exceed_Cnt;//Ô²»·Ê¶±ð¸¨ÖúÎ»
-
-
-uint8 absolute(uint8 a,uint8 b)//¾ø¶ÔÖµº¯Êý
 {
-    if(a>b)
-        return a-b;
-    else
-        return b-a;
-}
+        105, 109, 110, 109, 108,
+        105, 105, 100, 100, 100,
+        74, 73, 72, 72, 71,
+        70, 69, 68, 66, 65,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        /*
+        105, 106, 108, 109, 110,//+15
+        118, 118, 118, 118, 117,//+18
+        86, 85, 84, 84, 83,//-13
+        82, 81, 80, 78, 77,
+        75, 74, 72, 70, 68,
+        66, 64, 62, 60, 57,
+        55, 52, 49, 47, 44,
+        41, 37, 34, 31, 27,
+        24, 20, 16, 12, 8,
+        4, 0, 0, 0, 0*/
+};
+/*  110/120/130
+    105, 106, 108, 109, 110,//+15
+    118, 118, 118, 118, 117,//+18
+    86, 85, 84, 84, 83,//-13
+    82, 81, 80, 78, 77,
+    75, 74, 72, 70, 68,
+    66, 64, 62, 60, 57,
+    55, 52, 49, 47, 44,
+    41, 37, 34, 31, 27,
+    24, 20, 16, 12, 8,
+    4, 0, 0, 0, 0
+
+    140
+    102, 103, 105, 106, 107,//+12
+    118, 118, 118, 118, 117,//+18
+    90, 89, 88, 88, 87,//-9
+    86, 85, 84, 82, 81,
+    75, 74, 72, 70, 68,//-13
+    66, 64, 62, 60, 57,
+    55, 52, 49, 47, 44,
+    41, 37, 34, 31, 27,
+    24, 20, 16, 12, 8,
+    4, 0, 0, 0, 0
+ */
+
+int16 direct_Weight_crab[High]=
+{
+        12, 12, 11, 0, 0,//111, 105,//114, 114, 113, 113, 110,
+        0, 0, 0, 0, 0,//68, 68, 67, 61, 61,
+        0, 0, 0, 0, 0,//38, 37, 36, 35, 34,
+        0, 0, 0, 0, 0,//23, 22, 20, 19, 18,
+        0, 0, 0, 0, 0,//14, 12, 11, 9, 7,
+        0, 0, 0, 0, 0,//4, 2, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0
+};
+
 uint8 OTSU(uint8 *pre_image)//¶¯Ì¬¼ÆËããÐÖµ
 {
     uint16 piexlCount[256];
@@ -93,39 +144,45 @@ uint8 OTSU(uint8 *pre_image)//¶¯Ì¬¼ÆËããÐÖµ
             threshold=i;
         }
     }
-
     return threshold;
 }
 
-uint8 trackBorder_Get_Cnt=0;
-int16 last_start;
 void trackBorder_Get(uint8 threshold)//Ô¤´¦Àí±ß½ç
 {
-    memset(Border[LEFT],0,High*sizeof(int));//Êý¾Ý¸´Î»
-    memset(Border[CENTRE],Width/2,High*sizeof(int));
-    memset(Border[RIGHT],Width-1,High*sizeof(int));
-
-    centre_Delta_Exceed_Cnt=0;
+    left_Delta_Exceed_Cnt=right_Delta_Exceed_Cnt=0;
     leftLostLine_Cnt=0;//¶ªÏßÊýÁ¿³õÊ¼»¯
     rightLostLine_Cnt=0;
-    lostLeft_Sign=0;
-    lostRight_Sign=0;
     validLine=High-1;
+    index_Garage=0;
 
-    int d_neg=-25,d_pos=25;//-15 15
-    if(stateRing_Sign>=3&&stateRing_Sign<=4&&directRing_Sign==LEFT)
+    int d_neg=-40,d_pos=40;//-25 25
+    if(stateRing_Sign>=4&&stateRing_Sign<=5&&directRing_Sign==LEFT)
         d_neg=-90;
-    else if(stateRing_Sign>=3&&stateRing_Sign<=4&&directRing_Sign==RIGHT)
+    else if(stateRing_Sign>=4&&stateRing_Sign<=5&&directRing_Sign==RIGHT)
         d_pos=90;
 
-    for(int i=Width/2+d_neg;i<Width/2+d_pos;i++)//»ñÈ¡Ô¤±¸×îÔ¶ÓÐÐ§ÐÐµÄÁÐÊý¼°Æä³¤¶È
+    if(stateRing_Sign==4&&directRing_Sign==LEFT)
+        d_pos=0;
+    if(stateRing_Sign==4&&directRing_Sign==RIGHT)
+        d_neg=0;
+
+    shortest_col_index = 70;
+
+    for(int i=Width/2+d_neg;i<=Width/2+d_pos;i++)//»ñÈ¡Ô¤±¸×îÔ¶ÓÐÐ§ÐÐµÄÁÐÊý¼°Æä³¤¶È
     {
         int j=High-1;
-        while(mt9v03x_image[j][i]>threshold&&j>=0)
+        while(j>0&&mt9v03x_image[j][i]>threshold)
             j--;
-        if(j-1<validLine)
+        searsh_line_record[i]=j;//¼ÇÂ¼Ä³ÐÐµÄ×îÔ¶³¤¶È
+        if(i>70&&i<=118)
         {
-            validLine=j-1;
+            if(searsh_line_record[i] > searsh_line_record[shortest_col_index])//ÕÒ×î¶ÌÁÐÏÂ±ê
+                shortest_col_index = i;
+        }
+
+        if(j<validLine)
+        {
+            validLine=j;
             searsh_mid_line=i;
         }
     }
@@ -143,7 +200,6 @@ void trackBorder_Get(uint8 threshold)//Ô¤´¦Àí±ß½ç
             else if(j==0)//Î´ÕÒµ½Ìø±äµã
             {
                 EdgeL=0;
-                lostLeft_Sign=1;
                 islost_record[LEFT][i]=1;
                 leftLostLine_Cnt++;
                 break;
@@ -160,7 +216,6 @@ void trackBorder_Get(uint8 threshold)//Ô¤´¦Àí±ß½ç
             else if(j==Width-2)//Î´ÕÒµ½Ìø±äµã
             {
                 EdgeR=Width-2;
-                lostRight_Sign=1;
                 islost_record[RIGHT][i]=1;
                 rightLostLine_Cnt++;
                 break;
@@ -170,16 +225,63 @@ void trackBorder_Get(uint8 threshold)//Ô¤´¦Àí±ß½ç
         Border[LEFT][i]=EdgeL;//×ó±ß½ç
         Border[RIGHT][i]=EdgeR;//ÓÒ±ß½ç
         Border[CENTRE][i]=(EdgeL+EdgeR)>>1;//ÁÙÊ±ÖÐÏß
+
+        track_Width[i]=Border[RIGHT][i]-Border[LEFT][i];
+
+        if(track_Width[i]<10)
+        {
+            garage_Record[index_Garage++]=i;
+
+            if(searsh_mid_line-delta-30>0)
+                for(int j=searsh_mid_line-delta-30;j>=0;j=j-delta)//É¨Ãè×ó±ß½ç
+                {
+                    if(mt9v03x_image[i][j]<threshold)
+                    {
+                        EdgeL=j;
+                        islost_record[LEFT][i]=0;
+                        break;
+                    }
+                    else if(j==0)//Î´ÕÒµ½Ìø±äµã
+                    {
+                        EdgeL=0;
+                        islost_record[LEFT][i]=1;
+                        leftLostLine_Cnt++;
+                        break;
+                    }
+                }
+            if(searsh_mid_line+delta+30<Width-1)
+                for(int j=searsh_mid_line+delta+30;j<Width-1;j=j+delta)//É¨ÃèÓÒ±ß½ç
+                {
+                    if(mt9v03x_image[i][j]<threshold)
+                    {
+                        EdgeR=j;
+                        islost_record[RIGHT][i]=0;
+                        break;
+                    }
+                    else if(j==Width-2)//Î´ÕÒµ½Ìø±äµã
+                    {
+                        EdgeR=Width-2;
+                        islost_record[RIGHT][i]=1;
+                        rightLostLine_Cnt++;
+                        break;
+                    }
+                }
+            Border[LEFT][i]=EdgeL;//×ó±ß½ç
+            Border[RIGHT][i]=EdgeR;//ÓÒ±ß½ç
+            Border[CENTRE][i]=(EdgeL+EdgeR)>>1;//ÁÙÊ±ÖÐÏß
+        }
+
         if(i<High-1)
         {
-            int16 tmp=Border[CENTRE][i]-Border[CENTRE][i+1];
+            int16 tmp=Border[LEFT][i]-Border[LEFT][i+1];
+            if(tmp>22||tmp<-22)//22
+                left_Delta_Exceed_Cnt++;
+            tmp=Border[RIGHT][i]-Border[RIGHT][i+1];
             if(tmp>22||tmp<-22)
-                centre_Delta_Exceed_Cnt++;
+                right_Delta_Exceed_Cnt++;
         }
     }
 }
-
-
 
 uint8 is_Straight(uint8 start_Index,uint8 end_Index,uint8 side)//ÅÐ¶ÏÄ³Ò»±ß´ÓÆðµãµ½ÖÕµãÊÇ·ñÎªÖ±Ïß
 {
@@ -190,70 +292,86 @@ uint8 is_Straight(uint8 start_Index,uint8 end_Index,uint8 side)//ÅÐ¶ÏÄ³Ò»±ß´ÓÆðµ
     {
         uint8 start=start_Index<end_Index?start_Index:end_Index;
         uint8 end=start_Index>end_Index?start_Index:end_Index;
+        if(start<validLine)
+            return 0;
         int8 delta=Border[side][start]-Border[side][start+1];
         for(uint8 i=start+1;i<end;i++)
         {
             int8 tmp=Border[side][i]-Border[side][i+1];
-            if(Border[side][i]==0||Border[side][i]==Width-1)
+            if(Border[side][i]==0||Border[side][i]==Width-2)
                 white_Cnt++;
             if(white_Cnt>10)
                 return 0;
-            if(tmp-delta>1||tmp-delta<-1)
+            if(tmp-delta>2||tmp-delta<-2)
                 return 0;
         }
         return 1;
     }
 }
 
-uint8 find_Zebra()
-{
-
-}
-
-int16 inflection_A,inflection_B,inflection_C;//ÓÉ½üµ½Ô¶¶¨ÒåÈý¸ö¹Õµã
-
-uint8 find_Inflection_C(int16 start,int16 end,int dir)//Ô¶´¦¹Õµã
+uint8 find_Inflection_C(int16 start,int16 end,int dir,int sign)//Ô¶´¦¹Õµã
 {
     if(dir==LEFT)
     {
-        for(int16 i=start+5;i<=end-3;i++)
+        if(sign==0)
         {
-            if((Border[LEFT][i]-Border[LEFT][i+1]>5)
-            &&(Border[LEFT][i]-Border[LEFT][i+2]>5)
-            &&(Border[LEFT][i]-Border[LEFT][i+3]>5))
+            for(int16 i=start;i<end;i++)
             {
-                if(i-start<10&&islost_record[LEFT][i+3]==1)
+                if(Border[LEFT][i]-Border[LEFT][i+1]>25)
                 {
-                    inflection_C=i;
-                    return 1;
-                }
-                else
-                {
-                    inflection_C=i;
-                    return 1;
+
+                        inflection_C=i;
+                        return 1;
                 }
             }
+        }
+        else if(sign==1)
+        {
+            for(int16 i=end-3;i>start;i--)
+                if(i-2>=start
+                   &&Border[LEFT][i]>5
+                   &&Border[LEFT][i]-Border[LEFT][i+1]>3
+                   &&Border[LEFT][i]-Border[LEFT][i+2]>3
+                   &&Border[LEFT][i]-Border[LEFT][i+3]>3
+                   &&Border[LEFT][i]-Border[LEFT][i-1]<=2
+                   &&Border[LEFT][i]-Border[LEFT][i-1]>=-2
+                   &&Border[LEFT][i-1]-Border[LEFT][i-2]<=2
+                   &&Border[LEFT][i-1]-Border[LEFT][i-2]>=-2)//25
+                {
+                    inflection_C=i;
+                        return 1;
+                }
         }
     }
     else
     {
-        for(int16 i=start+5;i<=end-3;i++)
+        if(sign==0)
         {
-            if((Border[RIGHT][i]-Border[RIGHT][i+1]<-5)
-            &&(Border[RIGHT][i]-Border[RIGHT][i+2]<-5)
-            &&(Border[RIGHT][i]-Border[RIGHT][i+3]<-5))
+            for(int16 i=start;i<end;i++)
             {
-                if(i-start<10&&islost_record[RIGHT][i+3]==1)
+                if(Border[RIGHT][i]-Border[RIGHT][i+1]<-25)//-30
                 {
                     inflection_C=i;
-                    return 1;
-                }
-                else
-                {
-                    inflection_C=i;
-                    return 1;
+                        return 1;
                 }
             }
+        }
+        else if(sign==1)
+        {
+            for(int16 i=end-3;i>start;i--)
+                if(i-2>=start
+                   &&Border[RIGHT][i]!=Width-5
+                   &&Border[RIGHT][i]-Border[RIGHT][i+1]<-3
+                   &&Border[RIGHT][i]-Border[RIGHT][i+2]<-3
+                   &&Border[RIGHT][i]-Border[RIGHT][i+3]<-3
+                   &&Border[RIGHT][i]-Border[RIGHT][i-1]<=2
+                   &&Border[RIGHT][i]-Border[RIGHT][i-1]>=-2
+                   &&Border[RIGHT][i-1]-Border[RIGHT][i-2]<=2
+                   &&Border[RIGHT][i-1]-Border[RIGHT][i-2]>=-2)
+                {
+                    inflection_C=i;
+                    return 1;
+                }
         }
     }
     inflection_C=255;
@@ -264,12 +382,10 @@ uint8 find_Inflection_B(int16 start,int16 end,int dir)//ÖÐ¼ä¹Õµã
 {
     if(dir==LEFT)
     {
-        for(int16 i=end-1;i>=start+1;i--)
-            if(//(islost_record[LEFT][i-1]==0)
-            //&&(islost_record[LEFT][i]==0)
-            //&&(islost_record[LEFT][i+1]==0)
-            /*&&*/(Border[LEFT][i]-Border[LEFT][i-2]>0)
-            &&(Border[LEFT][i]-Border[LEFT][i+2]>0))
+        for(int16 i=end-2;i>start+2;i--)
+            if(Border[LEFT][i]>30
+               &&Border[LEFT][i]-Border[LEFT][i-2]>=0
+               &&Border[LEFT][i]-Border[LEFT][i+2]>0)
             {
                 inflection_B=i;
                 return 1;
@@ -277,12 +393,10 @@ uint8 find_Inflection_B(int16 start,int16 end,int dir)//ÖÐ¼ä¹Õµã
     }
     else
     {
-        for(int16 i=end-1;i>=start+1;i--)
-            if(/*(islost_record[RIGHT][i-1]==0)
-            &&(islost_record[RIGHT][i]==0)
-            &&(islost_record[RIGHT][i+1]==0)
-            &&*/(Border[RIGHT][i]-Border[RIGHT][i-2]<0)
-            &&(Border[RIGHT][i]-Border[RIGHT][i+2]<0))
+        for(int16 i=end-2;i>start+2;i--)
+            if(Border[RIGHT][i]<Width-30
+               &&Border[RIGHT][i]-Border[RIGHT][i-2]<=0
+               &&Border[RIGHT][i]-Border[RIGHT][i+2]<0)
             {
                 inflection_B=i;
                 return 1;
@@ -298,10 +412,8 @@ uint8 find_Inflection_A(int16 start,int16 end,int dir,int sign)//½ü´¦¹Õµã
     {
         if(sign==0)//½ø»·ÕÒAµã
         {
-            for(int16 i=end-1;i>=start;i--)
-                if((islost_record[LEFT][i]==0)
-                &&(islost_record[LEFT][i-1]==1)
-                &&(Border[LEFT][i]-Border[LEFT][i-1]>10))
+            for(int16 i=end;i>start+3;i--)
+                if(Border[LEFT][i]-Border[LEFT][i-3]>15)
                 {
                     inflection_A=i;
                     return 1;
@@ -309,10 +421,11 @@ uint8 find_Inflection_A(int16 start,int16 end,int dir,int sign)//½ü´¦¹Õµã
         }
         else if(sign==1)//³ö»·ÕÒAµã
         {
-            for(int16 i=end;i>=start+3;i--)
-                if((Border[RIGHT][i]-Border[RIGHT][i-1]<0)
-                &&(Border[RIGHT][i]-Border[RIGHT][i-2]<0)
-                &&(Border[RIGHT][i]-Border[RIGHT][i-3]<0))
+            for(int16 i=end-4;i>start+4;i--)
+                if((Border[RIGHT][i]-Border[RIGHT][i-2]<0)
+                  &&(Border[RIGHT][i]-Border[RIGHT][i-4]<0)
+                  &&(Border[RIGHT][i]-Border[RIGHT][i+2]<0)
+                  &&(Border[RIGHT][i]-Border[RIGHT][i+4]<0))
                 {
                     inflection_A=i;
                     return 1;
@@ -323,10 +436,8 @@ uint8 find_Inflection_A(int16 start,int16 end,int dir,int sign)//½ü´¦¹Õµã
     {
         if(sign==0)//½ø»·ÕÒAµã
         {
-            for(int16 i=end-1;i>=start;i--)
-                if((islost_record[RIGHT][i]==0)
-                &&(islost_record[RIGHT][i-1]==1)
-                &&(Border[RIGHT][i]-Border[RIGHT][i-1]<-10))
+            for(int16 i=end;i>start+3;i--)
+                if(Border[RIGHT][i]-Border[RIGHT][i-3]<-20)
                 {
                     inflection_A=i;
                     return 1;
@@ -334,15 +445,17 @@ uint8 find_Inflection_A(int16 start,int16 end,int dir,int sign)//½ü´¦¹Õµã
         }
         else if(sign==1)//³ö»·ÕÒAµã
         {
-            for(int16 i=end;i>=start+6;i--)
+            for(int16 i=end-4;i>start+4;i--)
                 if((Border[LEFT][i]-Border[LEFT][i-2]>0)
-                &&(Border[LEFT][i]-Border[LEFT][i-4]>0)
-                &&(Border[LEFT][i]-Border[LEFT][i-6]>0))
+                  &&(Border[LEFT][i]-Border[LEFT][i-4]>0)
+                  &&(Border[LEFT][i]-Border[LEFT][i+2]>0)
+                  &&(Border[LEFT][i]-Border[LEFT][i+4]>0))
                 {
                     inflection_A=i;
                     return 1;
                 }
         }
+
     }
     inflection_A=255;
     return 0;
@@ -350,38 +463,35 @@ uint8 find_Inflection_A(int16 start,int16 end,int dir,int sign)//½ü´¦¹Õµã
 
 int16 centre_line_get()//»ñÈ¡ÖÐÏßÆ«²îÖµ
 {
-    int16 sum_A=0,sum_B=0;
-    int16 cnt=1;
-    float k=1.6;
+    int32 sum_A=0,sum_B=0;
+    //int16 cnt=0;
 
     Border[CENTRE][High-1]=(Border[LEFT][High-1]+Border[RIGHT][High-1])>>1;
 
-    for(int i=High-2;i>=validLine;i--)
+    int16 end=validLine;
+    if(stateRing_Sign==3&&inflection_C!=255)
+        end=inflection_C;
+
+    if(stateGarage_Sign==2)
+        end=inflection_frontZebra;
+
+    if(stateBranch_Sign==1||stateBranch_Sign==4)
+        end=index_t;
+
+    for(int i=High-2;i>=end;i--)
     {
         Border[CENTRE][i]=(Border[LEFT][i]+Border[RIGHT][i])>>1;
 
-        if(stateRing_Sign==2)
+        if(stateBranch_Sign==3)
         {
-            if(directRing_Sign==LEFT&&Border[CENTRE][i]-Border[CENTRE][i+1]>5)
-            {
-                int16 tmp=Border[CENTRE][i+cnt]-k*cnt;
-                if(tmp<0)
-                    tmp=0;
-                Border[CENTRE][i]=tmp;
-                cnt++;
-            }
-            if(directRing_Sign==RIGHT&&Border[CENTRE][i]-Border[CENTRE][i+1]<-5)
-            {
-                int16 tmp=Border[CENTRE][i+cnt]+k*cnt;
-                if(tmp>Width-1)
-                    tmp=Width-1;
-                Border[CENTRE][i]=tmp;
-                cnt++;
-            }
+            sum_A=sum_A+direct_Weight_crab[High-1-i]*(Border[CENTRE][i]-Width/2);
+            sum_B=sum_B+direct_Weight_crab[High-1-i];
         }
-
-        sum_A=sum_A+direct_Weight[High-1-i]*(Border[CENTRE][i]-Width/2);
-        sum_B=sum_B+direct_Weight[High-1-i];
+        else
+        {
+            sum_A=sum_A+direct_Weight[High-1-i]*(Border[CENTRE][i]-Width/2);
+            sum_B=sum_B+direct_Weight[High-1-i];
+        }
     }
     return sum_A/sum_B;
 }
@@ -391,51 +501,62 @@ void judge_Ring()//Ê¶±ðÔ²»·²¢ÅÐ¶ÏËù´¦×´Ì¬
     switch(stateRing_Sign)
     {
     case 0://ÆðÊ¼×´Ì¬£¬¼ì²âÊÇ·ñÓöµ½Ô²»·
-        if(centre_Delta_Exceed_Cnt>=2)//¿ÉÄÜÊÇÔ²»·
+        if(left_Delta_Exceed_Cnt>=3&&left_Delta_Exceed_Cnt<=4&&right_Delta_Exceed_Cnt<=1
+            &&is_Straight(High-1, 15, RIGHT)==1
+            &&find_Inflection_A(validLine<20?20:validLine, High-1, LEFT, 0)==1
+            &&inflection_A>25)//¿ÉÄÜÊÇ×óÔ²»·
         {
-            if(is_Straight(High-1, Default_Straight_Judge, LEFT)
-                &&find_Inflection_A(validLine, High-1, RIGHT,0))//ÊÇÓÒ»·£¿
-            {
                 stateRing_Sign=1;
-                track=Ring;
-                directRing_Sign=RIGHT;
-            }
-            else if(is_Straight(High-1, Default_Straight_Judge, RIGHT)
-                &&find_Inflection_A(validLine, High-1, LEFT,0))//ÊÇ×ó»·£¿
-            {
-                stateRing_Sign=1;
-                track=Ring;
                 directRing_Sign=LEFT;
-            }
+        }
+
+        else if(left_Delta_Exceed_Cnt<=1&&right_Delta_Exceed_Cnt>=3&&right_Delta_Exceed_Cnt<=4
+            &&is_Straight(High-1, 15, LEFT)==1
+            &&find_Inflection_A(validLine<20?20:validLine, High-1, RIGHT, 0)==1
+            &&inflection_A>25)//¿ÉÄÜÊÇÓÒÔ²»·
+        {
+                stateRing_Sign=1;
+                directRing_Sign=RIGHT;
         }
         break;
-    case 1://²¹µÚ1¸ùÏß×´Ì¬£¬¼ì²â²»µ½A¹ÕµãÊ±½øÈëÏÂÒ»½×¶Î
-        if(find_Inflection_A(validLine, High-1, directRing_Sign,0)==0)
+    case 1:
+        if((find_Inflection_A(validLine<13?13:validLine, High-1, directRing_Sign, 0)==0))
             stateRing_Sign=2;
         break;
-    case 2://²¹µÚ2¸ùÏß×´Ì¬£¬¼ì²â²»µ½C¹ÕµãÊ±½øÈëÏÂÒ»×´Ì¬
-        if(find_Inflection_C(validLine, High-1, directRing_Sign)==0)
-            stateRing_Sign=3;
-        break;
-    case 3://»·ÄÚ×´Ì¬£¬¼ì²âµ½A¹ÕµãÊ±´ú±í¸Ã³ö»·²¹Ïß
-        if(directRing_Sign==LEFT
-        &&(find_Inflection_A(validLine, High-1, LEFT,1)==1))
-            stateRing_Sign=4;
-        else if(directRing_Sign==RIGHT
-        &&(find_Inflection_A(validLine, High-1, RIGHT,1)==1))
-            stateRing_Sign=4;
-        break;
-    case 4://²¹µÚ3¸ùÏß×´Ì¬£¬ÄÜ¼ì²âµ½C¹Õµã´ú±íÒÑ³ö»·
-        if((validLine<20)&&(directRing_Sign==LEFT)&&(find_Inflection_A(validLine, High-1, LEFT, 1)==0))
-            stateRing_Sign=5;
-        else if((validLine<20)&&(directRing_Sign==RIGHT)&&(find_Inflection_A(validLine, High-1, RIGHT, 1)==0))
-            stateRing_Sign=5;
-        break;
-    case 5://²¹µÚ4¸ùÏß×´Ì¬£¬µ±×óÓÒÁ½±ß×î½üÐÐ¶¼²»¶ªÏß´ú±íÀë¿ªÔ²»·
-        if(islost_record[LEFT][40]==0&&islost_record[RIGHT][40]==0)
+    case 2://
+        if((find_Inflection_C(validLine<6?6:validLine, High-1, directRing_Sign,0)==1)&&inflection_C>=12)
         {
-                stateRing_Sign=0;
-                track=Straight;
+            stateRing_Sign=3;
+            inflection_C_last=inflection_C;
+        }
+        break;
+    case 3://²¹µÚ2¸ùÏß×´Ì¬£¬¼ì²â²»µ½C¹ÕµãÊ±½øÈëÏÂÒ»×´Ì¬
+        if(find_Inflection_C(validLine<4?4:validLine, High-1, directRing_Sign,0)==0
+           ||(inflection_C!=255&&inflection_C>40))//42
+            stateRing_Sign=4;
+        break;
+    case 4://»·ÄÚ×´Ì¬£¬¼ì²âµ½A¹ÕµãÊ±´ú±í¸Ã³ö»·²¹Ïß
+        if(/*validLine<=18&&*/find_Inflection_A(validLine, High-1, directRing_Sign,1)==1/*&&inflection_A>20
+            &&inflection_A<40*/)
+            stateRing_Sign=5;
+        break;
+    case 5://²¹µÚ3¸ùÏß×´Ì¬£¬ÄÜ¼ì²âµ½C¹Õµã´ú±íÒÑ³ö»·
+        if((validLine<13)&&(find_Inflection_C(validLine<6?6:validLine, High-1, directRing_Sign,1)==1))
+            stateRing_Sign=6;
+        break;
+    case 6://²¹µÚ4¸ùÏß×´Ì¬£¬µ±×óÓÒÁ½±ß×î½üÐÐ¶¼²»¶ªÏß´ú±íÀë¿ªÔ²»·||¼ì²â²»µ½C¹Õµã
+        if(find_Inflection_C(validLine, High-1, directRing_Sign,1)==0)
+        {
+            if(directRing_Sign==LEFT&&is_Straight(High-1, 25, RIGHT)==1)//
+            {
+                stateRing_Sign=0;//
+                inflection_C_last=-1;
+            }
+            else if(directRing_Sign==RIGHT&&is_Straight(High-1, 25, LEFT)==1)//
+            {
+                stateRing_Sign=0;//
+                inflection_C_last=-1;
+            }
         }
         break;
     }
@@ -446,105 +567,175 @@ void repair_Ring(uint8 threshold)//Ô²»·²¹Ïß
 {
     switch(stateRing_Sign)
     {
+
     case 1://²¹µÚ1¸ùÏß
         if(directRing_Sign==LEFT)//×ó»·²¹Ïß
         {
-            int16 i=inflection_A-1;
-            repair_Cnt=1;
-            int16 tmp=Border[LEFT][inflection_A]+0.7*repair_Cnt;
-            while(i>=0&&tmp>Border[LEFT][i])
+            int16 i=inflection_A-3;
+            repair_Cnt=3;
+            int16 tmp=Border[LEFT][inflection_A]+0.8*repair_Cnt;
+            while(i>0&&tmp>Border[LEFT][i])
             {
                 Border[LEFT][i]=tmp;
                 repair_Cnt++;
                 i--;
-                tmp=Border[LEFT][inflection_A]+0.7*repair_Cnt;
+                tmp=Border[LEFT][inflection_A]+0.8*repair_Cnt;
             }
         }
-        else //ÓÒ»·²¹Ïß
+        else if(directRing_Sign==RIGHT)//ÓÒ»·²¹Ïß
         {
-            int16 i=inflection_A-1;
-            repair_Cnt=1;
-            int16 tmp=Border[RIGHT][inflection_A]-0.6*repair_Cnt;
-            while(i>=0&&tmp<Border[RIGHT][i])
+            int16 i=inflection_A-3;
+            repair_Cnt=3;
+            int16 tmp=Border[RIGHT][inflection_A]-0.8*repair_Cnt;
+            while(i>0&&tmp<Border[RIGHT][i])
             {
                 Border[RIGHT][i]=tmp;
                 repair_Cnt++;
                 i--;
-                tmp=Border[RIGHT][inflection_A]-0.6*repair_Cnt;
+                tmp=Border[RIGHT][inflection_A]-0.8*repair_Cnt;
             }
         }
         break;
-    case 2://²¹µÚ2¸ùÏß
+    case 2:
+        if(find_Inflection_B(validLine, High-1, directRing_Sign)==1)
+        {
+            if(directRing_Sign==LEFT)
+            {
+                repair_Cnt=1;
+                int16 i=inflection_B+1;
+                int16 tmp=Border[LEFT][inflection_B]-0.9*repair_Cnt;
+                while(i<High)
+                {
+                    if(tmp<0)
+                        tmp=0;
+                    Border[LEFT][i]=tmp;
+                    i++;
+                    repair_Cnt++;
+                    tmp=Border[LEFT][inflection_B]-0.9*repair_Cnt;
+                }
+            }
+            else if(directRing_Sign==RIGHT)
+            {
+                repair_Cnt=1;
+                int16 i=inflection_B+1;
+                int16 tmp=Border[RIGHT][inflection_B]+0.9*repair_Cnt;
+                while(i<High)
+                {
+                    if(tmp>Width-2)
+                        tmp=Width-2;
+                    Border[RIGHT][i]=tmp;
+                    i++;
+                    repair_Cnt++;
+                    tmp=Border[RIGHT][inflection_B]+0.9*repair_Cnt;
+                }
+            }
+        }
+        break;
+    case 3://²¹µÚ2¸ùÏß
         if(directRing_Sign==LEFT)//×ó»·²¹Ïß
         {
             int16 i=inflection_C+1;
             repair_Cnt=1;
-            float k;
-            k=2.7;//1.8
-            while(i<High&&Border[LEFT][inflection_C]+k*repair_Cnt<Border[RIGHT][i])//²¹C¹ÕµãµÄÏß
+            int16 tmp=Border[LEFT][inflection_C]+2.3*repair_Cnt;//2.2
+
+            while(i<High&&tmp<Border[RIGHT][i])//²¹C¹ÕµãµÄÏß
             {
-               int16 tmp=Border[LEFT][inflection_C]+k*repair_Cnt;//ÏµÊý´ý¶¨
-               if(tmp>Width-1)
-                   tmp=Width-1;
                Border[RIGHT][i]=tmp;
                repair_Cnt++;
                i++;
+               tmp=Border[LEFT][inflection_C]+2.3*repair_Cnt;//ÏµÊý´ý¶¨
             }
 
-            if(find_Inflection_B(inflection_C+2, High-1, LEFT)==1)//ÄÜÕÒµ½B¹Õµã£¬Ôò²¹B¹ÕµãµÄÏß
+            repair_Cnt=1;
+            tmp=Border[LEFT][inflection_C]-1.1*repair_Cnt;
+            i=inflection_C+1;
+            while(i<High&&tmp>Border[LEFT][i])//Ñ°ÕÒBµã
             {
-               repair_Cnt=1;
-               for(i=inflection_B+1;i<High;i++)
-               {
-                   int16 tmp=Border[LEFT][inflection_B]-1.2*repair_Cnt;//ÏµÊý´ý¶¨
-                   if(tmp<0)
-                       tmp=0;
-                   Border[LEFT][i]=tmp;
-                   repair_Cnt++;
-               }
+                i++;
+                repair_Cnt++;
+                tmp=Border[LEFT][inflection_C]-1.1*repair_Cnt;
             }
+
+            if(i-inflection_C>4)
+                while(i<High)//²¹BµãµÄÏß
+                {
+                    Border[LEFT][i]=tmp;
+                    i++;
+                    repair_Cnt++;
+                    tmp=Border[LEFT][inflection_C]-0.9*repair_Cnt;
+                }
         }
-        else//ÓÒ»·²¹Ïß
+        else if(directRing_Sign==RIGHT)//ÓÒ»·²¹Ïß
         {
             int16 i=inflection_C+1;
             repair_Cnt=1;
-            float k;
-            k=2.7;//2
+            int16 tmp=Border[RIGHT][inflection_C]-2.3*repair_Cnt;
 
-            while(i<High&&Border[RIGHT][inflection_C]-k*repair_Cnt>Border[LEFT][i])//²¹C¹ÕµãµÄÏß
+            while(i<High&&tmp>Border[LEFT][i])//²¹C¹ÕµãµÄÏß
             {
-               int16 tmp=Border[RIGHT][inflection_C]-k*repair_Cnt;//ÏµÊý´ý¶¨
-               if(tmp<0)
-                   tmp=0;
                Border[LEFT][i]=tmp;
                repair_Cnt++;
                i++;
+               tmp=Border[RIGHT][inflection_C]-2.3*repair_Cnt;//ÏµÊý´ý¶¨
             }
 
-            if(find_Inflection_B(inflection_C+2, High-1, RIGHT)==1)//ÄÜÕÒµ½B¹Õµã£¬Ôò²¹B¹ÕµãµÄÏß
+            repair_Cnt=1;
+            tmp=Border[RIGHT][inflection_C]+1.1*repair_Cnt;
+            i=inflection_C+1;
+            while(i<High&&tmp<Border[RIGHT][i])//Ñ°ÕÒBµã
             {
-               repair_Cnt=1;
-               for(i=inflection_B+1;i<High;i++)
-               {
-                   int16 tmp=Border[RIGHT][inflection_B]+1.2*repair_Cnt;//ÏµÊý´ý¶¨
-                   if(tmp>Width-1)
-                       tmp=Width-1;
-                   Border[RIGHT][i]=tmp;
-                   repair_Cnt++;
-               }
+                i++;
+                repair_Cnt++;
+                tmp=Border[RIGHT][inflection_C]+1.1*repair_Cnt;
             }
 
+
+            if(i-inflection_C>-4)
+                while(i<High)//²¹BµãµÄÏß
+                {
+                    Border[RIGHT][i]=tmp;
+                    i++;
+                    repair_Cnt++;
+                    tmp=Border[RIGHT][inflection_C]+0.9*repair_Cnt;
+                }
         }
         break;
-    case 5://²¹µÚ4¸ùÏß
+    case 5:
+        if(find_Inflection_A(validLine, High-1, directRing_Sign, 1)==1)
+        {
+            if(directRing_Sign==LEFT)
+            {
+                repair_Cnt=1;
+                for(int i=inflection_A-1;i>validLine;i--)
+                {
+                    int tmp=Border[RIGHT][inflection_A]-5*repair_Cnt;
+                    if(tmp>Border[LEFT][i])
+                        Border[RIGHT][i]=tmp;
+                    repair_Cnt++;
+                }
+            }
+            else
+            {
+                repair_Cnt=1;
+                for(int i=inflection_A-1;i>validLine;i--)
+                {
+                    int tmp=Border[LEFT][inflection_A]+5*repair_Cnt;
+                    if(tmp<Border[RIGHT][i])
+                        Border[LEFT][i]=tmp;
+                    repair_Cnt++;
+                }
+            }
+        }
+        break;
+    case 6://²¹µÚ4¸ùÏß
         if(directRing_Sign==LEFT)
         {
-            if(find_Inflection_C(validLine, High-1, LEFT)==1)
+            if(inflection_C!=255)
             {
                 repair_Cnt=1;
                 for(int i=inflection_C+1;i<High;i++)
                 {
-                    int16 tmp=Border[LEFT][inflection_C]-1.1*repair_Cnt;
+                    int16 tmp=Border[LEFT][inflection_C]-0.4*repair_Cnt;
                     if(tmp<0)
                         tmp=0;
                     Border[LEFT][i]=tmp;
@@ -554,12 +745,12 @@ void repair_Ring(uint8 threshold)//Ô²»·²¹Ïß
         }
         else
         {
-            if(find_Inflection_C(validLine, High-1, RIGHT)==1)
+            if(inflection_C!=255)
             {
                 repair_Cnt=1;
                 for(int i=inflection_C+1;i<High;i++)
                 {
-                    int16 tmp=Border[RIGHT][inflection_C]+1.1*repair_Cnt;
+                    int16 tmp=Border[RIGHT][inflection_C]+0.4*repair_Cnt;
                     if(tmp>Width-1)
                         tmp=Width-1;
                     Border[RIGHT][i]=tmp;
@@ -571,80 +762,316 @@ void repair_Ring(uint8 threshold)//Ô²»·²¹Ïß
     }
 }
 
-void judge_Branch()//Ê¶±ð²íÂ·²¢ÅÐ¶ÏËù´¦×´Ì¬
+int16 get_triangle(uint8 threshold,int sign)
 {
+    int16 cnt=0,last_cnt=-1,last_last_cnt=-1;
+    index_t=High-1;//cnt=1´ú±íµ±Ç°ÐÐ´æÔÚ°×->ºÚ¡¢ºÚ->°×µÄÌø±ä
+    int16 white_to_black=0,black_to_white=0;
 
-}
-
-void repair_Branch()//²íÂ·²¹Ïß
-{
-
-}
-
-void judge_Garage()//Ê¶±ð³µ¿â
-{
-    if(directGarage_Sign==Garage_Out)//ÏÈÐ´ÓÒ³ö¿â
+    for(int16 i=High-4;i>validLine+3;i--)
     {
-        switch(stateGarage_Sign)
+        if(i-3>validLine+3
+           &&track_Width[i]<=track_Width[i+1]
+           && track_Width[i]<track_Width[i+3]
+           && track_Width[i]<=track_Width[i-1]
+           && track_Width[i]<track_Width[i-3]
+           )
         {
-        case 1://Ö±×ß½×¶Î
-            if(Border[LEFT][30]==0)//Ö±×ßµ½Ò»¶¨³Ì¶È¿ªÊ¼×ªÍä
-                stateGarage_Sign=2;
-            break;
-        case 2://²¹×óÏß½×¶Î
-            if(find_Zebra()==0)
-                stateGarage_Sign=0;
+            index_t=i;
             break;
         }
     }
-    else if(directGarage_Sign==Garage_In) {
+    for(int16 i=index_t-1;i>=15;i--)
+    {
+        cnt=0;
+        white_to_black=0;
+        black_to_white=0;
+        for(int16 j=Border[LEFT][index_t]+2; j<Border[RIGHT][index_t]; j++)
+        {
+            if(mt9v03x_image[i][j]<threshold && mt9v03x_image[i][j-1]>threshold && white_to_black==0)
+                white_to_black++;
+            if(mt9v03x_image[i][j]>threshold && mt9v03x_image[i][j-1]<threshold && black_to_white==0 && white_to_black!=0)
+                black_to_white++;
+        }
+        if(white_to_black==1 && black_to_white==1)
+            cnt=1;
+        if(sign==0)//ºÚ°×ºÚ¡¢°×°×°×
+            if(cnt!=0 && last_cnt==0)
+                return i;
+        if(sign==1)//ºÚ°×ºÚ¡¢ºÚ°×ºÚ¡¢°×°×°×
+            if(cnt!=0 && last_cnt!=0 && last_last_cnt==0)
+                return i-1;
+        last_last_cnt=last_cnt;
+        last_cnt=cnt;
+    }
+    return -1;
+}
 
+int16 is_Branch(uint8 threshold,int sign)
+{
+    triangle_index = get_triangle(threshold,1);//»ñÈ¡×î¶ÌÁÐ
+    if(sign==0)//ÈëÈý²í
+    {
+        if(shortest_col_index>74 && shortest_col_index<114 && triangle_index>=15)
+        {
+            for (int16 i = High - 1; i > validLine + 4; i--)
+                if (
+                    (i-4>validLine+4)
+                    &&(Border[LEFT][i]>Border[LEFT][i-1])
+                    && (Border[LEFT][i]>Border[LEFT][i-4])
+                    && (Border[RIGHT][i]<Border[RIGHT][i-1])
+                    && (Border[RIGHT][i]<Border[RIGHT][i-4])
+
+                    && (islost_record[LEFT][i] == 0)
+                    && (islost_record[RIGHT][i] == 0)
+                    && (islost_record[LEFT][i-1] == 0)
+                    && (islost_record[RIGHT][i-1] == 0)
+                    && (islost_record[LEFT][i-2] == 0)
+                    && (islost_record[RIGHT][i-2] == 0)
+                    && (islost_record[LEFT][i-3] == 0)
+                    && (islost_record[RIGHT][i-4] == 0)
+                    )
+                        return 1;
+        }
+    }
+    else if(sign==1)
+    {
+        if(shortest_col_index>74 && shortest_col_index<114 && triangle_index>=15)
+            return 1;
+    }
+    return -1;
+}
+
+void judge_Branch(uint8 threshold)//Ê¶±ð²íÂ·²¢ÅÐ¶ÏËù´¦×´Ì¬
+{
+    switch (stateBranch_Sign)
+    {
+    case 0:
+        if (left_Delta_Exceed_Cnt<=2
+            &&right_Delta_Exceed_Cnt<=2
+            &&is_Branch(threshold,0) != -1)
+            stateBranch_Sign = 1;
+        break;
+    case 1:
+        triangle_index = get_triangle(threshold,1);
+        if(triangle_index>=33||validLine>=26)//31 24(ËÙ¶È110), 29 22(ËÙ¶È120)
+        {
+            rotate_Angle=0;
+            stateBranch_Sign=2;
+            transinfo=44+directBranch_Sign;//¸æÖªÖ÷»ú¿ªÊ¼Ðý×ª
+        }
+        break;
+    case 2:
+        //Ðý×ªÖÐ£¬ºÎÊ±±äÎª×´Ì¬3ÓÉÖÐ¶Ïº¯Êý¾ö¶¨
+        transinfo=5;
+        break;
+    case 3:
+        if (left_Delta_Exceed_Cnt<=2
+            &&right_Delta_Exceed_Cnt<=2
+            &&is_Branch(threshold,1) != -1)
+            stateBranch_Sign = 4;
+        break;
+    case 4:
+        triangle_index = get_triangle(threshold,1);
+        if(triangle_index>=46||validLine>=36)
+        {
+            rotate_Angle=0;
+            stateBranch_Sign=5;
+            transinfo=44+directBranch_Sign;//¸æÖªÖ÷»ú¿ªÊ¼Ðý×ª
+        }
+        break;
+    case 5:
+        //Ðý×ªÖÐ£¬ºÎÊ±±äÎª×´Ì¬0ÓÉÖÐ¶Ïº¯Êý¾ö¶¨
+        transinfo=5;
+        break;
     }
 }
 
-void repair_Garage()//³µ¿â²¹Ïß
+uint8 find_frontzebra_inflection(int16 dir)
 {
-    if(directGarage_Sign==Garage_Out)
+	if (dir == LEFT)//×ó³µ¿â
+	{
+		for (int16 i =validLine; i < High - 1; i++)
+			if (Border[LEFT][i] - Border[LEFT][i + 1] > 15
+			    &&Border[RIGHT][i]<=Border[RIGHT][i+1]
+			    &&track_Width[i]>10)
+			{
+				inflection_frontZebra = i;
+				return 1;
+			}
+	}
+	else if (dir == RIGHT)//ÓÒ³µ¿â
+	{
+		for (int16 i =validLine; i < High - 1; i++)
+			if (Border[RIGHT][i] - Border[RIGHT][i + 1] < -15
+			    &&Border[LEFT][i]>=Border[LEFT][i+1]
+			    &&track_Width[i]>10)
+			{
+				inflection_frontZebra = i;
+				return 1;
+			}
+	}
+	inflection_frontZebra = 255;
+	return 0;
+}
+
+uint8 find_rearzebra_inflection(int16 dir)
+{
+	if (dir == LEFT)//×ó³µ¿â
+	{
+		for (int16 i = validLine; i < High - 3; i++)//
+			if (Border[LEFT][i] - Border[LEFT][i + 3] > 30)//
+			{
+				inflection_rearZebra = i;
+				return 1;
+			}
+	}
+	else if (dir == RIGHT)//ÓÒ³µ¿â
+	{
+		for (int16 i = High - 1; i > validLine + 3; i--)
+			if (Border[RIGHT][i] - Border[RIGHT][i - 3] < -30)
+			{
+				inflection_rearZebra = i;
+				return 1;
+			}
+	}
+	inflection_rearZebra = 255;
+	return 0;
+}
+
+int16 is_Zebra_In()
+{
+    if(index_Garage>=5)
+        return 1;
+    return 0;
+}
+
+int16 find_OutGarage_Start()
+{
+    if(directGarage_Sign==RIGHT)
     {
-        int16 inf;
-        switch(stateGarage_Sign)
+        for(int16 i=High-1;i>validLine;i--)
+            if(Border[LEFT][i]-Border[LEFT][i-1]>10)
+                return Border[LEFT][i];
+    }
+    else if(directGarage_Sign==LEFT)
+    {
+        for(int16 i=High-1;i>validLine;i--)
+            if(Border[RIGHT][i]-Border[RIGHT][i-1]<-10)
+                return Border[RIGHT][i];
+    }
+    return -1;
+}
+
+int16 is_Zebra_Out(uint8 threshold)
+{
+    int16 centre=(Border[LEFT][High-1]+Border[RIGHT][High-1])<<1;
+    int16 cnt=0;
+    for(int16 j=centre;j>Border[LEFT][High-1];j--)
+    {
+        int16 tmp=0;
+        for(int16 i=High-1;i>validLine+1;i--)
+            if((mt9v03x_image[i][j]<threshold&&mt9v03x_image[i-1][j]>threshold)
+              ||(mt9v03x_image[i][j]>threshold&&mt9v03x_image[i-1][j]<threshold))
+                tmp++;
+        if(tmp>cnt)
+            cnt=tmp;
+    }
+    for(int16 j=centre+1;j<Border[RIGHT][High-1];j++)
+    {
+        int16 tmp=0;
+        for(int16 i=High-1;i>validLine+1;i--)
+            if((mt9v03x_image[i][j]<threshold&&mt9v03x_image[i-1][j]>threshold)
+              ||(mt9v03x_image[i][j]>threshold&&mt9v03x_image[i-1][j]<threshold))
+                tmp++;
+        if(tmp>cnt)
+            cnt=tmp;
+    }
+    return cnt;
+}
+
+void repair_Garage_Out()
+{
+    if(directGarage_Sign==RIGHT)
+    {
+        repair_Cnt=1;
+        Border[LEFT][High-1]=55;
+        for(int16 i=High-2;i>validLine;i--)
         {
-        case 1://²¹Ò»ÌõÖ±Ïß
-            for(int16 i=High-1;i>=validLine;i--)
+            int16 tmp=Border[LEFT][High-1]+17*repair_Cnt;//10
+            if(tmp>Width-2)
+                tmp=Width-2;
+            Border[LEFT][i]=tmp;
+            repair_Cnt++;
+        }
+    }
+    else if(directGarage_Sign==LEFT){
+
+        repair_Cnt=1;
+        Border[RIGHT][High-1]=131;
+        for(int16 i=High-2;i>validLine;i--)
+        {
+            int16 tmp=Border[RIGHT][High-1]-17*repair_Cnt;//10
+            if(tmp<0)
+                tmp=0;
+            Border[RIGHT][i]=tmp;
+            repair_Cnt++;
+        }
+    }
+}
+
+void judge_Garage_In()//Ê¶±ð³µ¿â
+{
+	switch (stateGarage_Sign)
+	{
+	/*case 0:
+        if (find_frontzebra_inflection(directGarage_Sign) == 1
+            && find_rearzebra_inflection(directGarage_Sign) == 1)
+            stateGarage_Sign = 1;
+		break;*/
+	case 0:
+		if (find_frontzebra_inflection(directGarage_Sign) == 1
+			&& inflection_frontZebra >= 37)//15
+			{
+		        rotate_Angle=0;
+		        stateGarage_Sign=1;
+		        transinfo=11+directGarage_Sign;
+			}
+		break;
+	case 1:
+	    transinfo=5;
+	    break;
+	}
+}
+
+void repair_Garage_In(uint8 threshold)//³µ¿â²¹Ïß
+{
+	switch (stateGarage_Sign)
+	{
+	case 2:
+        repair_Cnt = 1;
+        if(directGarage_Sign==RIGHT)
+        {
+            for (int i = inflection_frontZebra; i < High; i++)
             {
-                Border[LEFT][i]=0;
-                Border[LEFT][i]=Width-1;
+                int16 tmp = Border[RIGHT][inflection_frontZebra + 3] - 8 * repair_Cnt;//4.5
+                if(tmp<0)
+                    tmp=0;
+                Border[LEFT][i]=tmp;
+                repair_Cnt++;
             }
-            break;
-        case 2:
-            for(int16 i=High-1;i>validLine;i--)//ÏÈÕÒ×ó¹Õµã
-                if(Border[LEFT][i]-Border[LEFT][i-1]>5)
-                {
-                    inf=i;
-                    break;
-                }
-
         }
-    }
-    else if(directGarage_Sign==Garage_In) {
-
-    }
+        else if(directGarage_Sign==LEFT)
+        {
+            for (int i = inflection_frontZebra; i < High; i++)
+            {
+                int16 tmp = Border[LEFT][inflection_frontZebra + 3] + 8 * repair_Cnt;//4.5
+                if(tmp>Width-2)
+                    tmp=Width-2;
+                Border[RIGHT][i]=tmp;
+                repair_Cnt++;
+            }
+        }
+        break;
+	}
 }
-
-float cal_Curvature()
-{
-    float a_x=High-1,a_y=Border[CENTRE][High-1];
-    float b_x=(High-1+validLine)>>1,b_y=Border[CENTRE][(High-1+validLine)>>1];
-    float c_x=validLine,c_y=Border[CENTRE][validLine];
-
-    float tmp,s,a,b,c;
-    tmp=a_x*b_y+b_x*c_y+c_x*a_y-a_y*b_x-b_y*c_x-c_y*a_x;
-    if(tmp<0)
-        tmp=-tmp;
-    s=tmp/2;
-    a=sqrtf((b_x-c_x)*(b_x-c_x)+(b_y-c_y)*(b_y-c_y));
-    b=sqrtf((a_x-c_x)*(a_x-c_x)+(a_y-c_y)*(a_y-c_y));
-    c=sqrtf((a_x-b_x)*(a_x-b_x)+(a_y-b_y)*(a_y-b_y));
-    return (a*b*c)/(4*s);
-}
-

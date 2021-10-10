@@ -77,13 +77,10 @@ void EXTI1_IRQHandler(void)
     }
 
 }
-extern uint8 half_Width[50];
-extern uint8 Border[3][50];
+
 void EXTI2_IRQHandler(void)
 {
     EXTI_ClearITPendingBit(EXTI_Line2);
-    for(int i=0;i<50;i++)
-        half_Width[i]=(Border[2][i]-Border[0][i])>>1;
 }
 
 void EXTI3_IRQHandler(void)

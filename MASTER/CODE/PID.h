@@ -13,22 +13,22 @@ typedef struct
     float                kp;         //P
     float                ki;         //I
     float                kd;         //D
-    float                imax;       //积分限幅
 
-    float                out_p;  //KP输出
-    float                out_i;  //KI输出
-    float                out_d;  //KD输出
+    float                out_p;  //P输出
+    float                out_i;  //I输出
+    float                out_d;  //D输出
     float                out;    //pid输出
+    float                last_out_d;//上次D输出
 
-    float                integrator; //< 积分值
     float                last_error; //< 上次误差
     float                last_last_error;//< 上次误差与上上次误差之差
-    unsigned long        last_t;     //< 上次时间
 }Pid_Param;
 
 //float straight_Speed=400,round_Speed=200,branch_Speed=300;
 
-void PID_Init(Pid_Param *tmp);
+void PID_Init(Pid_Param *tmp,int8 sign);
+void PID_dir_Init(Pid_Param *tmp,int8 sign);
 void PID_incCtrl(Pid_Param *tmp, float error);
+void PID_posCtrl(Pid_Param *tmp, float error);
 
 #endif /* CODE_PID_H_ */

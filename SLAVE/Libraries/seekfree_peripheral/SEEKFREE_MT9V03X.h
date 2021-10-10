@@ -101,7 +101,7 @@ extern uint8    receive_num;        //仅用于接收配置信息时所用  禁止用户使用该变
 extern vuint8   uart_receive_flag;  //仅用于接收配置信息时所用  禁止用户使用该变量
 
 
-extern uint8    mt9v03x_finish_flag;//一场图像采集完成标志位
+extern vuint8   mt9v03x_finish_flag;//一场图像采集完成标志位
 extern uint8    mt9v03x_image[MT9V03X_H][MT9V03X_W];
 
 
